@@ -662,7 +662,7 @@ app.post('/api/job-application', upload.fields([
         
         console.log('Sending email to admin...');
         await sendEmail(
-            process.env.ADMIN_EMAIL || 'your-admin-email@example.com',
+            process.env.ADMIN_EMAIL || 'forcon674@outlook.com',
             `🆕 ใบสมัครงานใหม่ - ${position} - ${fullname_th}`,
             adminEmailHTML,
             attachments  // 📎 แนบ PDF, รูปถ่าย และ Resume
