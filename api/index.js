@@ -1,10 +1,9 @@
-// api/index.js - Complete Vercel Serverless Function with PDF
+// api/index.js - FIXED VERSION with Thai Language Support
 // ====================================================
 
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
-const PDFDocument = require('pdfkit');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -47,275 +46,349 @@ async function sendEmail(to, subject, html, attachments = []) {
 }
 
 // ====================================================
-// PDF GENERATION FUNCTION
+// HTML TEMPLATE FOR PDF (รองรับภาษาไทย 100%)
 // ====================================================
 
-function generateJobApplicationPDF(data) {
-    return new Promise((resolve, reject) => {
-        try {
-            const doc = new PDFDocument({ 
-                size: 'A4',
-                margins: { top: 50, bottom: 50, left: 50, right: 50 }
-            });
-            
-            const chunks = [];
-            
-            doc.on('data', chunk => chunks.push(chunk));
-            doc.on('end', () => resolve(Buffer.concat(chunks)));
-            doc.on('error', reject);
-
-            // Header with gradient effect (simulated)
-            doc.rect(0, 0, doc.page.width, 100).fill('#667eea');
-            
-            doc.fillColor('#FFFFFF')
-               .fontSize(28)
-               .font('Helvetica-Bold')
-               .text('ระบบรับสมัครงาน', 50, 30);
-            
-            doc.fontSize(14)
-               .font('Helvetica')
-               .text('Job Application Form - ใบสมัครงาน', 50, 65);
-            
-            // Reset color and position
-            doc.fillColor('#000000');
-            let yPos = 130;
-            
-            // Application ID
-            doc.fontSize(10)
-               .fillColor('#666666')
-               .text(`Application ID: ${data.id}`, 50, yPos)
-               .text(`Date: ${new Date().toLocaleDateString('th-TH')}`, 400, yPos);
-            
-            yPos += 30;
-            
-            // Section: Personal Information
-            addSectionHeader(doc, 'Personal Information - ข้อมูลส่วนตัว', yPos);
-            yPos += 25;
-            
-            addField(doc, 'Position Applied - ตำแหน่งที่สมัคร:', data.position, yPos);
-            yPos += 20;
-            addField(doc, 'Full Name (Thai):', data.personal_info.fullname_th, yPos);
-            yPos += 20;
-            if (data.personal_info.fullname_en) {
-                addField(doc, 'Full Name (English):', data.personal_info.fullname_en, yPos);
-                yPos += 20;
-            }
-            addField(doc, 'Gender - เพศ:', data.personal_info.gender, yPos);
-            yPos += 20;
-            addField(doc, 'Date of Birth:', data.personal_info.birthdate, yPos);
-            doc.fontSize(10).text(`(Age: ${data.personal_info.age} years)`, 300, yPos);
-            yPos += 20;
-            addField(doc, 'Nationality - สัญชาติ:', data.personal_info.nationality, yPos);
-            yPos += 20;
-            addField(doc, 'Ethnicity - เชื้อชาติ:', data.personal_info.ethnicity, yPos);
-            yPos += 20;
-            addField(doc, 'Religion - ศาสนา:', data.personal_info.religion, yPos);
-            yPos += 20;
-            addField(doc, 'ID Card Number:', data.personal_info.id_card, yPos);
-            yPos += 20;
-            addField(doc, 'Phone:', data.personal_info.phone, yPos);
-            yPos += 20;
-            addField(doc, 'LINE ID:', data.personal_info.line_id, yPos);
-            yPos += 20;
-            addField(doc, 'Email:', data.personal_info.email, yPos);
-            yPos += 20;
-            addField(doc, 'Address:', data.personal_info.address.full, yPos);
-            yPos += 20;
-            addField(doc, 'Location:', 
-                `${data.personal_info.address.subdistrict}, ${data.personal_info.address.district}, ${data.personal_info.address.province} ${data.personal_info.address.zipcode}`, 
-                yPos
-            );
-            yPos += 30;
-            
-            // Check if new page needed
-            if (yPos > 650) {
-                doc.addPage();
-                yPos = 50;
-            }
-            
-            // Section: Education
-            addSectionHeader(doc, 'Education - การศึกษา', yPos);
-            yPos += 25;
-            
-            if (data.education.high_school.school) {
-                addField(doc, 'High School:', 
-                    `${data.education.high_school.school} (${data.education.high_school.major || '-'}) - ${data.education.high_school.year || '-'}`, 
-                    yPos
-                );
-                yPos += 20;
-            }
-            
-            if (data.education.vocational.school) {
-                addField(doc, 'Vocational:', 
-                    `${data.education.vocational.school} (${data.education.vocational.major || '-'}) - ${data.education.vocational.year || '-'}`, 
-                    yPos
-                );
-                yPos += 20;
-            }
-            
-            if (data.education.bachelor.school) {
-                addField(doc, 'Bachelor Degree:', 
-                    `${data.education.bachelor.school} (${data.education.bachelor.major || '-'}) - ${data.education.bachelor.year || '-'}`, 
-                    yPos
-                );
-                yPos += 20;
-            }
-            
-            if (data.education.other.school) {
-                addField(doc, 'Other:', 
-                    `${data.education.other.school} (${data.education.other.major || '-'}) - ${data.education.other.year || '-'}`, 
-                    yPos
-                );
-                yPos += 20;
-            }
-
-            if (data.education.education_used) {
-                addField(doc, 'Education Used for Application:', data.education.education_used, yPos);
-                yPos += 20;
-            }
-            
-            yPos += 10;
-            
-            // Check if new page needed
-            if (yPos > 650) {
-                doc.addPage();
-                yPos = 50;
-            }
-            
-            // Section: Work Experience
-            addSectionHeader(doc, 'Work Experience - ประสบการณ์การทำงาน', yPos);
-            yPos += 25;
-            
-            if (data.work_experience.length > 0) {
-                data.work_experience.forEach((work, index) => {
-                    doc.fontSize(11)
-                       .fillColor('#667eea')
-                       .font('Helvetica-Bold')
-                       .text(`Experience ${index + 1}:`, 50, yPos);
-                    
-                    yPos += 18;
-                    addField(doc, 'Company:', work.company, yPos);
-                    yPos += 20;
-                    addField(doc, 'Position:', work.position || '-', yPos);
-                    yPos += 20;
-                    addField(doc, 'Duration:', `${work.start || '-'} to ${work.end || '-'}`, yPos);
-                    yPos += 20;
-                    addField(doc, 'Reason for Leaving:', work.reason || '-', yPos);
-                    yPos += 25;
-                    
-                    // Check if new page needed
-                    if (yPos > 650) {
-                        doc.addPage();
-                        yPos = 50;
-                    }
-                });
-            } else {
-                doc.fontSize(10)
-                   .fillColor('#666666')
-                   .font('Helvetica')
-                   .text('No work experience provided', 50, yPos);
-                yPos += 25;
-            }
-            
-            // Section: Additional Information
-            if (yPos > 600) {
-                doc.addPage();
-                yPos = 50;
-            }
-            
-            addSectionHeader(doc, 'Additional Information - ข้อมูลเพิ่มเติม', yPos);
-            yPos += 25;
-
-            // Health Information
-            if (data.additional_info.has_disease) {
-                addField(doc, 'มีโรคประจำตัวหรือไม่:', data.additional_info.has_disease, yPos);
-                yPos += 20;
-                
-                if (data.additional_info.disease_detail) {
-                    addField(doc, 'รายละเอียดโรคประจำตัว:', data.additional_info.disease_detail, yPos);
-                    yPos += 20;
-                }
-            }
-
-            // Criminal Record
-            if (data.additional_info.has_criminal_record) {
-                addField(doc, 'เคยต้องโทษหรือไม่:', data.additional_info.has_criminal_record, yPos);
-                yPos += 20;
-                
-                if (data.additional_info.criminal_detail) {
-                    addField(doc, 'รายละเอียดคดี:', data.additional_info.criminal_detail, yPos);
-                    yPos += 20;
-                }
-            }
-            
-            if (data.additional_info.special_skills) {
-                addField(doc, 'Special Skills:', data.additional_info.special_skills, yPos);
-                yPos += 20;
-            }
-            
-            if (data.additional_info.expected_salary) {
-                addField(doc, 'Expected Salary:', `${data.additional_info.expected_salary} THB`, yPos);
-                yPos += 20;
-            }
-            
-            if (data.additional_info.start_date) {
-                addField(doc, 'Available Start Date:', data.additional_info.start_date, yPos);
-                yPos += 20;
-            }
-            
-            if (data.additional_info.motivation) {
-                doc.fontSize(10)
-                   .fillColor('#000000')
-                   .font('Helvetica-Bold')
-                   .text('Motivation:', 50, yPos);
-                
-                yPos += 15;
-                doc.fontSize(10)
-                   .fillColor('#333333')
-                   .font('Helvetica')
-                   .text(data.additional_info.motivation, 50, yPos, { 
-                       width: 495, 
-                       align: 'left' 
-                   });
-            }
-            
-            // Footer
-            doc.fontSize(8)
-               .fillColor('#999999')
-               .text('Generated by Job Application System', 50, 750, { align: 'center' });
-            
-            doc.end();
-            
-            // Helper functions
-            function addSectionHeader(doc, title, y) {
-                doc.fontSize(14)
-                   .fillColor('#667eea')
-                   .font('Helvetica-Bold')
-                   .text(title, 50, y);
-                
-                doc.moveTo(50, y + 18)
-                   .lineTo(545, y + 18)
-                   .strokeColor('#667eea')
-                   .lineWidth(2)
-                   .stroke();
-            }
-            
-            function addField(doc, label, value, y) {
-                doc.fontSize(10)
-                   .fillColor('#000000')
-                   .font('Helvetica-Bold')
-                   .text(label, 50, y);
-                
-                doc.fontSize(10)
-                   .fillColor('#333333')
-                   .font('Helvetica')
-                   .text(value || '-', 180, y, { width: 365 });
-            }
-            
-        } catch (error) {
-            reject(error);
+function generateJobApplicationHTML(data) {
+    return `
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ใบสมัครงาน - ${data.personal_info.fullname_th}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-    });
+        
+        body {
+            font-family: 'Sarabun', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.95;
+        }
+        
+        .app-info {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            color: #667eea;
+            font-weight: 700;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .field-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .field {
+            margin-bottom: 10px;
+        }
+        
+        .field-label {
+            font-weight: 600;
+            color: #000;
+            display: inline-block;
+            min-width: 150px;
+        }
+        
+        .field-value {
+            color: #555;
+            display: inline;
+        }
+        
+        .work-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        
+        .work-item h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+            color: #999;
+            font-size: 12px;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ระบบรับสมัครงาน</h1>
+        <p>Job Application Form - ใบสมัครงาน</p>
+    </div>
+    
+    <div class="app-info">
+        <div><strong>รหัสใบสมัคร:</strong> ${data.id}</div>
+        <div><strong>วันที่สมัคร:</strong> ${new Date().toLocaleDateString('th-TH', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        })}</div>
+    </div>
+    
+    <!-- Personal Information -->
+    <div class="section">
+        <h2 class="section-title">📋 ข้อมูลส่วนตัว</h2>
+        
+        <div class="field">
+            <span class="field-label">ตำแหน่งที่สมัคร:</span>
+            <span class="field-value"><strong>${data.position}</strong></span>
+        </div>
+        
+        <div class="field-group">
+            <div class="field">
+                <span class="field-label">ชื่อ-นามสกุล (ไทย):</span>
+                <span class="field-value">${data.personal_info.fullname_th}</span>
+            </div>
+            ${data.personal_info.fullname_en ? `
+            <div class="field">
+                <span class="field-label">Full Name (English):</span>
+                <span class="field-value">${data.personal_info.fullname_en}</span>
+            </div>
+            ` : ''}
+        </div>
+        
+        <div class="field-group">
+            <div class="field">
+                <span class="field-label">เพศ:</span>
+                <span class="field-value">${data.personal_info.gender}</span>
+            </div>
+            <div class="field">
+                <span class="field-label">วันเกิด:</span>
+                <span class="field-value">${data.personal_info.birthdate} (อายุ ${data.personal_info.age} ปี)</span>
+            </div>
+        </div>
+        
+        <div class="field-group">
+            <div class="field">
+                <span class="field-label">สัญชาติ:</span>
+                <span class="field-value">${data.personal_info.nationality}</span>
+            </div>
+            <div class="field">
+                <span class="field-label">เชื้อชาติ:</span>
+                <span class="field-value">${data.personal_info.ethnicity}</span>
+            </div>
+        </div>
+        
+        <div class="field-group">
+            <div class="field">
+                <span class="field-label">ศาสนา:</span>
+                <span class="field-value">${data.personal_info.religion}</span>
+            </div>
+            <div class="field">
+                <span class="field-label">เลขบัตรประชาชน:</span>
+                <span class="field-value">${data.personal_info.id_card}</span>
+            </div>
+        </div>
+        
+        <div class="field-group">
+            <div class="field">
+                <span class="field-label">เบอร์โทร:</span>
+                <span class="field-value">${data.personal_info.phone}</span>
+            </div>
+            <div class="field">
+                <span class="field-label">LINE ID:</span>
+                <span class="field-value">${data.personal_info.line_id}</span>
+            </div>
+        </div>
+        
+        <div class="field">
+            <span class="field-label">อีเมล:</span>
+            <span class="field-value">${data.personal_info.email}</span>
+        </div>
+        
+        <div class="field">
+            <span class="field-label">ที่อยู่:</span>
+            <span class="field-value">${data.personal_info.address.full}</span>
+        </div>
+        
+        <div class="field">
+            <span class="field-label">ตำบล/เขต:</span>
+            <span class="field-value">${data.personal_info.address.subdistrict}, ${data.personal_info.address.district}, ${data.personal_info.address.province} ${data.personal_info.address.zipcode}</span>
+        </div>
+    </div>
+    
+    <!-- Education -->
+    <div class="section">
+        <h2 class="section-title">🎓 ประวัติการศึกษา</h2>
+        
+        ${data.education.high_school.school ? `
+        <div class="field">
+            <span class="field-label">มัธยมศึกษา/เทียบเท่า:</span>
+            <span class="field-value">${data.education.high_school.school} (${data.education.high_school.major || '-'}) - ${data.education.high_school.year || '-'}</span>
+        </div>
+        ` : ''}
+        
+        ${data.education.vocational.school ? `
+        <div class="field">
+            <span class="field-label">ปวช./ปวส.:</span>
+            <span class="field-value">${data.education.vocational.school} (${data.education.vocational.major || '-'}) - ${data.education.vocational.year || '-'}</span>
+        </div>
+        ` : ''}
+        
+        ${data.education.bachelor.school ? `
+        <div class="field">
+            <span class="field-label">ปริญญาตรี:</span>
+            <span class="field-value">${data.education.bachelor.school} (${data.education.bachelor.major || '-'}) - ${data.education.bachelor.year || '-'}</span>
+        </div>
+        ` : ''}
+        
+        ${data.education.other.school ? `
+        <div class="field">
+            <span class="field-label">อื่นๆ:</span>
+            <span class="field-value">${data.education.other.school} (${data.education.other.major || '-'}) - ${data.education.other.year || '-'}</span>
+        </div>
+        ` : ''}
+        
+        <div class="field" style="margin-top: 15px;">
+            <span class="field-label">วุฒิการศึกษาที่ใช้สมัคร:</span>
+            <span class="field-value"><strong>${data.education.education_used}</strong></span>
+        </div>
+    </div>
+    
+    <!-- Work Experience -->
+    <div class="section">
+        <h2 class="section-title">💼 ประสบการณ์การทำงาน</h2>
+        
+        ${data.work_experience.length > 0 ? 
+            data.work_experience.map((work, index) => `
+                <div class="work-item">
+                    <h4>ประสบการณ์งานที่ ${index + 1}</h4>
+                    <div class="field">
+                        <span class="field-label">บริษัท/สถานประกอบการ:</span>
+                        <span class="field-value">${work.company}</span>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">ตำแหน่ง:</span>
+                        <span class="field-value">${work.position || '-'}</span>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">ระยะเวลา:</span>
+                        <span class="field-value">${work.start || '-'} ถึง ${work.end || '-'}</span>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">เหตุผลที่ลาออก:</span>
+                        <span class="field-value">${work.reason || '-'}</span>
+                    </div>
+                </div>
+            `).join('') 
+        : '<p style="color: #999;">ไม่มีประสบการณ์ทำงาน</p>'}
+    </div>
+    
+    <!-- Additional Information -->
+    <div class="section">
+        <h2 class="section-title">✨ ข้อมูลเพิ่มเติม</h2>
+        
+        <div class="field">
+            <span class="field-label">มีโรคประจำตัวหรือไม่:</span>
+            <span class="field-value">${data.additional_info.has_disease}${data.additional_info.disease_detail ? ' - ' + data.additional_info.disease_detail : ''}</span>
+        </div>
+        
+        <div class="field">
+            <span class="field-label">เคยต้องโทษหรือไม่:</span>
+            <span class="field-value">${data.additional_info.has_criminal_record}${data.additional_info.criminal_detail ? ' - ' + data.additional_info.criminal_detail : ''}</span>
+        </div>
+        
+        ${data.additional_info.special_skills ? `
+        <div class="field">
+            <span class="field-label">ทักษะพิเศษ:</span>
+            <span class="field-value">${data.additional_info.special_skills}</span>
+        </div>
+        ` : ''}
+        
+        ${data.additional_info.expected_salary ? `
+        <div class="field">
+            <span class="field-label">เงินเดือนที่คาดหวัง:</span>
+            <span class="field-value">${data.additional_info.expected_salary} บาท</span>
+        </div>
+        ` : ''}
+        
+        ${data.additional_info.start_date ? `
+        <div class="field">
+            <span class="field-label">สามารถเริ่มงานได้:</span>
+            <span class="field-value">${data.additional_info.start_date}</span>
+        </div>
+        ` : ''}
+        
+        ${data.additional_info.motivation ? `
+        <div class="field" style="margin-top: 15px;">
+            <span class="field-label" style="display: block; margin-bottom: 5px;">เหตุผลที่ต้องการร่วมงาน:</span>
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; border-left: 4px solid #667eea;">
+                ${data.additional_info.motivation}
+            </div>
+        </div>
+        ` : ''}
+    </div>
+    
+    <div class="footer">
+        <p>สร้างโดย ระบบรับสมัครงานอัตโนมัติ | Generated by Job Application System</p>
+        <p style="margin-top: 5px;">© 2024 Made with 💚 in Thailand</p>
+    </div>
+</body>
+</html>
+    `;
 }
 
 // ====================================================
@@ -341,7 +414,7 @@ app.get('/', (req, res) => {
 });
 
 // ====================================================
-// JOB APPLICATION ENDPOINT WITH PDF
+// JOB APPLICATION ENDPOINT WITH HTML ATTACHMENT
 // ====================================================
 
 app.post('/api/job-application', upload.fields([
@@ -368,7 +441,6 @@ app.post('/api/job-application', upload.fields([
             district,
             province,
             zipcode,
-            // Education
             edu_high_school,
             edu_high_major,
             edu_high_year,
@@ -382,7 +454,6 @@ app.post('/api/job-application', upload.fields([
             edu_other_major,
             edu_other_year,
             education_used,
-            // Work Experience
             work1_company,
             work1_position,
             work1_start,
@@ -398,7 +469,6 @@ app.post('/api/job-application', upload.fields([
             work3_start,
             work3_end,
             work3_reason,
-            // Additional Info
             has_disease,
             disease_detail,
             has_criminal_record,
@@ -417,7 +487,6 @@ app.post('/api/job-application', upload.fields([
             });
         }
 
-        // Validate ID card (must be exactly 13 digits)
         const idCardDigits = id_card.replace(/\D/g, '');
         if (idCardDigits.length !== 13) {
             return res.status(400).json({
@@ -426,7 +495,6 @@ app.post('/api/job-application', upload.fields([
             });
         }
         
-        // Email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({
@@ -435,7 +503,6 @@ app.post('/api/job-application', upload.fields([
             });
         }
 
-        // Check if photo is uploaded
         if (!req.files || !req.files.photo) {
             return res.status(400).json({
                 success: false,
@@ -494,17 +561,17 @@ app.post('/api/job-application', upload.fields([
             status: 'pending'
         };
         
-        // Generate PDF
-        console.log('Generating PDF...');
-        const pdfBuffer = await generateJobApplicationPDF(application);
-        console.log('PDF generated successfully');
+        // Generate HTML (แทน PDF)
+        console.log('Generating HTML document...');
+        const htmlContent = generateJobApplicationHTML(application);
+        console.log('HTML generated successfully');
         
-        // Prepare attachments for admin email
+        // Prepare attachments
         const attachments = [
             {
-                filename: `Job_Application_${fullname_th}_${application.id}.pdf`,
-                content: pdfBuffer,
-                contentType: 'application/pdf'
+                filename: `Job_Application_${fullname_th}_${application.id}.html`,
+                content: Buffer.from(htmlContent, 'utf-8'),
+                contentType: 'text/html'
             }
         ];
         
@@ -584,7 +651,7 @@ app.post('/api/job-application', upload.fields([
             applicantEmailHTML
         );
         
-        // Send notification email to admin with PDF attachment
+        // Send notification email to admin with HTML attachment
         const adminEmailHTML = `
             <!DOCTYPE html>
             <html>
@@ -608,7 +675,7 @@ app.post('/api/job-application', upload.fields([
                 
                 <div class="alert">
                     <strong>⚠️ แจ้งเตือน:</strong> มีผู้สมัครงานตำแหน่ง <strong>${position}</strong> 
-                    กรุณาตรวจสอบไฟล์ PDF และรูปถ่ายที่แนบมาพร้อมอีเมลนี้
+                    กรุณาตรวจสอบไฟล์ HTML และรูปถ่ายที่แนบมาพร้อมอีเมลนี้
                 </div>
                 
                 <div class="section">
@@ -631,9 +698,9 @@ app.post('/api/job-application', upload.fields([
                 </div>
                 
                 <div class="section">
-                    <h3>📎 ไฟล์ที่แนบมา:</h3>
+                    <h3>🔎 ไฟล์ที่แนบมา:</h3>
                     <ul>
-                        <li>✅ ใบสมัครงาน (PDF) - <strong>Job_Application_${fullname_th}_${application.id}.pdf</strong></li>
+                        <li>✅ ใบสมัครงาน (HTML) - <strong>Job_Application_${fullname_th}_${application.id}.html</strong></li>
                         <li>✅ รูปถ่ายหน้าตรง - <strong>Photo_${fullname_th}_${req.files.photo[0].originalname}</strong></li>
                         ${req.files.resume ? `<li>✅ เรซูเม่ - <strong>${req.files.resume[0].originalname}</strong></li>` : '<li>❌ ไม่มีไฟล์เรซูเม่แนบมา</li>'}
                     </ul>
@@ -653,8 +720,8 @@ app.post('/api/job-application', upload.fields([
                 
                 <hr style="margin: 30px 0;">
                 <p style="text-align: center; color: #666;">
-                    <strong>📌 Action Required:</strong> กรุณาดาวน์โหลดและตรวจสอบไฟล์ PDF และรูปถ่ายที่แนบมา<br>
-                    <em>และติดต่อผู้สมัครภายใน 7 วันทำการ</em>
+                    <strong>📌 Action Required:</strong> กรุณาดาวน์โหลดและตรวจสอบไฟล์ HTML และรูปถ่ายที่แนบมา<br>
+                    <em>และติดต่อผู้สมัคร ภายใน 7 วันทำการ</em>
                 </p>
             </body>
             </html>
@@ -665,7 +732,7 @@ app.post('/api/job-application', upload.fields([
             process.env.ADMIN_EMAIL || 'forcon674@outlook.com',
             `🆕 ใบสมัครงานใหม่ - ${position} - ${fullname_th}`,
             adminEmailHTML,
-            attachments  // 📎 แนบ PDF, รูปถ่าย และ Resume
+            attachments  // 📎 แนบ HTML, รูปถ่าย และ Resume
         );
         console.log('Email sent successfully');
         
@@ -675,7 +742,7 @@ app.post('/api/job-application', upload.fields([
         // Return success response
         res.json({
             success: true,
-            message: 'ส่งใบสมัครงานสำเร็จ! เราจะติดต่อกลับภายใน 7 วันทำการ',
+            message: 'ส่งใบสมัครงานสำเร็จ! เราจะติดต่อกลับ ภายใน 7 วันทำการ',
             application_id: application.id
         });
         
