@@ -61,41 +61,7 @@ async function downloadThaiFont() {
         return { regular: thaiFont, bold: thaiFontBold };
         
     } catch (error) {
-        console.error('Error processing job application:', error);
-        console.error('Error stack:', error.stack);
-        
-        res.status(500).json({
-            success: false,
-            message: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-    }
-});
-
-// ====================================================
-// ERROR HANDLING
-// ====================================================
-
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        message: 'Endpoint not found'
-    });
-});
-
-app.use((err, req, res, next) => {
-    console.error('Global error handler:', err.stack);
-    res.status(500).json({
-        success: false,
-        message: 'Something went wrong!'
-    });
-});
-
-// ====================================================
-// EXPORT FOR VERCEL
-// ====================================================
-
-module.exports = app; downloading Thai fonts:', error.message);
+        console.error('Error downloading Thai fonts:', error.message);
         throw new Error('Cannot download Thai fonts: ' + error.message);
     }
 }
@@ -714,9 +680,12 @@ app.post('/api/job-application', upload.fields([
         
     } catch (error) {
         console.error('Error processing job application:', error);
+        console.error('Error stack:', error.stack);
+        
         res.status(500).json({
             success: false,
-            message: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
+            message: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
@@ -733,7 +702,7 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('Global error handler:', err.stack);
     res.status(500).json({
         success: false,
         message: 'Something went wrong!'
