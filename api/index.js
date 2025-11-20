@@ -1,4 +1,5 @@
-// api/index.js - MODERN BEAUTIFUL PDF DESIGN
+// ====================================================
+// JOB APPLICATION API (MODERN UI - ORIGINAL LOGIC)
 // ====================================================
 
 const express = require('express');
@@ -7,6 +8,9 @@ const nodemailer = require('nodemailer');
 const PDFDocument = require('pdfkit');
 const multer = require('multer');
 const axios = require('axios');
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -29,24 +33,26 @@ const transporter = nodemailer.createTransport({
 });
 
 // ====================================================
-// DOWNLOAD THAI FONTS
+// DOWNLOAD THAI FONT (Sarabun from Google Fonts)
 // ====================================================
 
 let thaiFont = null;
 let thaiFontBold = null;
 
 async function downloadThaiFont() {
-    if (thaiFont) return { regular: thaiFont, bold: thaiFontBold };
+    if (thaiFont && thaiFontBold) return { regular: thaiFont, bold: thaiFontBold };
     
     try {
         console.log('Downloading Thai fonts...');
         
+        // ดาวน์โหลดฟอนต์ Sarabun Regular
         const responseRegular = await axios.get(
             'https://github.com/cadsondemak/Sarabun/raw/master/fonts/ttf/Sarabun-Regular.ttf',
             { responseType: 'arraybuffer' }
         );
         thaiFont = Buffer.from(responseRegular.data);
         
+        // ดาวน์โหลดฟอนต์ Sarabun Bold
         try {
             const responseBold = await axios.get(
                 'https://github.com/cadsondemak/Sarabun/raw/master/fonts/ttf/Sarabun-Bold.ttf',
@@ -64,14 +70,14 @@ async function downloadThaiFont() {
     } catch (error) {
         console.error('Error downloading Thai font:', error);
         
+        // Fallback
         try {
             const fallback = await axios.get(
-                'https://raw.githubusercontent.com/google/fonts/main/ofl/sarabun/Sarabun-Regular.ttf',
+                'https://fonts.gstatic.com/s/sarabun/v13/DtVjJx26TKEr37c9aAFJn2QN.ttf',
                 { responseType: 'arraybuffer' }
             );
             thaiFont = Buffer.from(fallback.data);
             thaiFontBold = thaiFont;
-            console.log('Thai font downloaded from fallback source');
             return { regular: thaiFont, bold: thaiFontBold };
         } catch (fallbackError) {
             console.error('Fallback font download failed:', fallbackError);
@@ -100,18 +106,29 @@ async function sendEmail(to, subject, html, attachments = []) {
     }
 }
 
+function interpolateColor(color1, color2, factor) {
+    if (arguments.length < 3) return color1;
+    var result = color1.slice();
+    for (var i = 0; i < 3; i++) {
+        result[i] = Math.round(result[i] + factor * (color2[i] - color1[i]));
+    }
+    return result;
+}
+
 // ====================================================
-// BEAUTIFUL PDF GENERATION - MODERN DESIGN
+// PDF GENERATION FUNCTION WITH IMPROVED DESIGN
 // ====================================================
 
 async function generateJobApplicationPDF(data) {
     return new Promise(async (resolve, reject) => {
         try {
+            // ดาวน์โหลดฟอนต์ไทย
             const fonts = await downloadThaiFont();
             
             const doc = new PDFDocument({ 
                 size: 'A4',
-                margins: { top: 0, bottom: 0, left: 0, right: 0 }
+                margins: { top: 60, bottom: 60, left: 60, right: 60 },
+                bufferPages: true
             });
             
             const chunks = [];
@@ -120,449 +137,490 @@ async function generateJobApplicationPDF(data) {
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
 
+            // ลงทะเบียนฟอนต์ไทย
             doc.registerFont('Sarabun', fonts.regular);
             doc.registerFont('SarabunBold', fonts.bold);
 
+            // Theme Colors
+            const COLORS = {
+                primary: '#667eea',    // Indigo
+                secondary: '#764ba2',  // Purple
+                text: '#2c3e50',       // Dark Blue Grey
+                label: '#7f8c8d',      // Grey
+                lightBg: '#f8f9fa',
+                border: '#e2e8f0'
+            };
+
             // ====================================================
-            // STUNNING HEADER - Full Width Design
+            // MODERN HEADER DESIGN
             // ====================================================
             
-            // Gradient Header Background (สีสวยๆ)
-            const headerHeight = 180;
-            const gradientSteps = 100;
-            
+            // Gradient background (เรียบหรู)
+            const headerHeight = 120;
+            const gradientSteps = 60;
             for (let i = 0; i < gradientSteps; i++) {
                 const color = interpolateColor(
-                    [79, 172, 254],  // #4FACFE (ฟ้าสดใส)
-                    [0, 242, 254],   // #00F2FE (ฟ้าเขียว)
+                    [102, 126, 234], // #667eea
+                    [118, 75, 162],  // #764ba2
                     i / gradientSteps
                 );
                 doc.rect(0, i * (headerHeight / gradientSteps), doc.page.width, headerHeight / gradientSteps)
                    .fill(`rgb(${color[0]}, ${color[1]}, ${color[2]})`);
             }
             
-            // Large Position Title
+            // Header Title
             doc.fillColor('#FFFFFF')
-               .fontSize(36)
+               .fontSize(32)
                .font('SarabunBold')
-               .text(data.position, 0, 45, { 
-                   align: 'center', 
-                   width: doc.page.width 
-               });
+               .text('ใบสมัครงาน', 0, 35, { align: 'center', width: doc.page.width });
             
-            // Applicant Name
-            doc.fontSize(22)
+            doc.fontSize(12)
                .font('Sarabun')
-               .fillOpacity(0.95)
-               .text(data.personal_info.fullname_th, 0, 95, { 
-                   align: 'center', 
-                   width: doc.page.width 
-               });
+               .fillOpacity(0.9)
+               .text('JOB APPLICATION FORM', 0, 72, { align: 'center', width: doc.page.width });
             
-            if (data.personal_info.fullname_en) {
-                doc.fontSize(14)
-                   .fillOpacity(0.85)
-                   .text(data.personal_info.fullname_en, 0, 125, { 
-                       align: 'center', 
-                       width: doc.page.width 
-                   });
-            }
-            
-            // Application ID Badge
-            doc.fillOpacity(1)
-               .roundedRect(doc.page.width / 2 - 100, 150, 200, 25, 12)
-               .fillOpacity(0.3)
+            // Application Info Bar (สีขาวโปร่งใส rounded)
+            doc.roundedRect(60, 95, doc.page.width - 120, 35, 10)
+               .fillOpacity(0.25)
                .fill('#FFFFFF');
             
             doc.fillOpacity(1)
                .fillColor('#FFFFFF')
-               .fontSize(10)
+               .fontSize(9)
                .font('Sarabun')
-               .text(`รหัสใบสมัคร: ${data.id}`, 0, 157, { 
-                   align: 'center', 
-                   width: doc.page.width 
-               });
+               .text(`รหัสใบสมัคร: ${data.id}`, 75, 105);
+            
+            doc.text(`วันที่: ${new Date().toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            })}`, doc.page.width - 220, 105);
+            
+            // Position Badge (highlight)
+            const positionText = `${data.position}`;
+            doc.fontSize(13).font('SarabunBold');
+            const positionWidth = doc.widthOfString(positionText) + 40;
+            const badgeX = (doc.page.width - positionWidth) / 2;
+            
+            // Drop Shadow for Badge
+            doc.roundedRect(badgeX + 2, 152, positionWidth, 32, 8)
+               .fillOpacity(0.1)
+               .fill('#000000');
+
+            // Badge Body
+            doc.roundedRect(badgeX, 150, positionWidth, 32, 8)
+               .fillOpacity(1)
+               .fill('#FFFFFF')
+               .strokeColor(COLORS.primary)
+               .lineWidth(1)
+               .stroke();
+            
+            doc.fillColor(COLORS.primary)
+               .text(positionText, badgeX, 158, { width: positionWidth, align: 'center' });
+            
+            // Reset position
+            let yPos = 200;
             
             // ====================================================
-            // QUICK INFO CARDS - Three Cards Layout
+            // HELPER FUNCTIONS (DESIGN ONLY)
             // ====================================================
             
-            let yPos = 210;
-            const cardWidth = 160;
-            const cardHeight = 75;
-            const cardSpacing = 15;
-            const startX = (doc.page.width - (cardWidth * 3 + cardSpacing * 2)) / 2;
+            function addModernSectionHeader(doc, title, y) {
+                // Left accent bar
+                doc.roundedRect(60, y, 4, 22, 2)
+                   .fill(COLORS.primary);
+                
+                // Title
+                doc.fontSize(16)
+                   .fillColor(COLORS.text)
+                   .font('SarabunBold')
+                   .text(title, 75, y);
+                
+                // Bottom line (Faded)
+                doc.moveTo(75, y + 26)
+                   .lineTo(doc.page.width - 60, y + 26)
+                   .lineWidth(0.5)
+                   .strokeOpacity(0.2)
+                   .strokeColor(COLORS.primary)
+                   .stroke();
+                
+                doc.strokeOpacity(1);
+            }
             
-            // Card 1: Contact Info
-            drawInfoCard(doc, startX, yPos, cardWidth, cardHeight, 
-                '📱 ติดต่อ', 
-                [
-                    data.personal_info.phone,
-                    data.personal_info.line_id,
-                    data.personal_info.email
-                ],
-                '#4FACFE'
-            );
+            function addSubHeader(doc, title, x, y) {
+                doc.fontSize(11)
+                   .fillColor(COLORS.secondary)
+                   .font('SarabunBold')
+                   .text(title, x, y);
+            }
             
-            // Card 2: Personal Details
-            drawInfoCard(doc, startX + cardWidth + cardSpacing, yPos, cardWidth, cardHeight,
-                '👤 ข้อมูลส่วนตัว',
-                [
-                    `${data.personal_info.gender} • ${data.personal_info.age} ปี`,
-                    data.personal_info.nationality,
-                    data.personal_info.religion
-                ],
-                '#00D2FF'
-            );
-            
-            // Card 3: Education
-            drawInfoCard(doc, startX + (cardWidth + cardSpacing) * 2, yPos, cardWidth, cardHeight,
-                '🎓 การศึกษา',
-                [
-                    data.education.education_used,
-                    `เลขบัตร: ${data.personal_info.id_card}`,
-                    ''
-                ],
-                '#3A7BD5'
-            );
-            
-            yPos += cardHeight + 35;
-            
+            function addCleanField(doc, label, value, x, y) {
+                if (!value) return; // Skip if empty
+
+                // Label
+                doc.fontSize(10)
+                   .fillColor(COLORS.label)
+                   .font('Sarabun')
+                   .text(label, x, y);
+                
+                // Value
+                const labelWidth = doc.widthOfString(label);
+                doc.fontSize(10)
+                   .fillColor(COLORS.text)
+                   .font('Sarabun')
+                   .text(`: ${value}`, x + labelWidth + 5, y);
+            }
+
             // ====================================================
-            // MAIN CONTENT AREA - Two Column Layout
+            // SECTION: PERSONAL INFORMATION
             // ====================================================
             
-            const leftColX = 50;
-            const leftColWidth = 260;
-            const rightColX = 330;
-            const rightColWidth = 245;
+            addModernSectionHeader(doc, '📋 ข้อมูลส่วนตัว', yPos);
+            yPos += 40;
             
-            // LEFT COLUMN
-            let leftY = yPos;
+            // Two-column layout for personal info
+            const leftCol = 60;
+            const rightCol = 320;
             
-            // Address Section
-            addSectionTitle(doc, '📍 ที่อยู่ปัจจุบัน', leftColX, leftY, '#4FACFE');
-            leftY += 25;
+            // Column 1
+            addCleanField(doc, 'ชื่อ-นามสกุล (ไทย)', data.personal_info.fullname_th, leftCol, yPos);
+            yPos += 22;
+            
+            if (data.personal_info.fullname_en) {
+                addCleanField(doc, 'Full Name (EN)', data.personal_info.fullname_en, leftCol, yPos);
+                yPos += 22;
+            }
+            
+            addCleanField(doc, 'เพศ', data.personal_info.gender, leftCol, yPos);
+            addCleanField(doc, 'อายุ', `${data.personal_info.age} ปี`, rightCol, yPos);
+            yPos += 22;
+            
+            addCleanField(doc, 'วันเกิด', data.personal_info.birthdate, leftCol, yPos);
+            addCleanField(doc, 'สัญชาติ', data.personal_info.nationality, rightCol, yPos);
+            yPos += 22;
+            
+            addCleanField(doc, 'เชื้อชาติ', data.personal_info.ethnicity, leftCol, yPos);
+            addCleanField(doc, 'ศาสนา', data.personal_info.religion, rightCol, yPos);
+            yPos += 22;
+            
+            addCleanField(doc, 'เลขบัตรประชาชน', data.personal_info.id_card, leftCol, yPos);
+            yPos += 35;
+            
+            // Contact Info Box (Rounded Background)
+            doc.roundedRect(55, yPos - 5, doc.page.width - 110, 90, 8)
+               .fillOpacity(0.4)
+               .fill(COLORS.lightBg);
+            
+            doc.fillOpacity(1);
+            addSubHeader(doc, 'ข้อมูลการติดต่อ', leftCol + 10, yPos + 5);
+            yPos += 28;
+            
+            addCleanField(doc, '📱 เบอร์โทร', data.personal_info.phone, leftCol + 10, yPos);
+            addCleanField(doc, '💬 LINE ID', data.personal_info.line_id, rightCol, yPos);
+            yPos += 22;
+            
+            addCleanField(doc, '📧 อีเมล', data.personal_info.email, leftCol + 10, yPos);
+            yPos += 30;
+            
+            // Address
+            addSubHeader(doc, 'ที่อยู่ปัจจุบัน', leftCol, yPos);
+            yPos += 25;
             
             doc.fontSize(10)
-               .fillColor('#2c3e50')
+               .fillColor(COLORS.text)
                .font('Sarabun')
-               .text(data.personal_info.address.full, leftColX, leftY, { 
-                   width: leftColWidth,
-                   lineGap: 2
-               });
-            leftY += 22;
+               .text(data.personal_info.address.full, leftCol, yPos, { width: 475, lineGap: 3 });
+            yPos += 20;
             
-            doc.fontSize(9)
-               .fillColor('#7f8c8d')
-               .text(`${data.personal_info.address.subdistrict}, ${data.personal_info.address.district}`, 
-                   leftColX, leftY, { width: leftColWidth });
-            leftY += 15;
+            doc.fontSize(10)
+               .fillColor(COLORS.label)
+               .text(`${data.personal_info.address.subdistrict}, ${data.personal_info.address.district}, ${data.personal_info.address.province} ${data.personal_info.address.zipcode}`, 
+                   leftCol, yPos, { width: 475 });
+            yPos += 40;
             
-            doc.text(`${data.personal_info.address.province} ${data.personal_info.address.zipcode}`, 
-                leftColX, leftY, { width: leftColWidth });
-            leftY += 35;
+            // Check page break
+            if (yPos > 680) {
+                doc.addPage();
+                yPos = 60;
+            }
             
-            // Education History
-            addSectionTitle(doc, '🎓 ประวัติการศึกษา', leftColX, leftY, '#4FACFE');
-            leftY += 30;
+            // ====================================================
+            // SECTION: EDUCATION
+            // ====================================================
             
+            addModernSectionHeader(doc, '🎓 ประวัติการศึกษา', yPos);
+            yPos += 40;
+            
+            function addEducationEntry(doc, level, school, major, year, y) {
+                // Card Background for Edu
+                doc.roundedRect(60, y - 5, doc.page.width - 120, 40, 5)
+                   .fillOpacity(0.3)
+                   .fill(COLORS.lightBg);
+                doc.fillOpacity(1);
+
+                // Timeline dot style
+                doc.circle(70, y + 8, 3).fill(COLORS.primary);
+                
+                // Level badge
+                doc.fontSize(10)
+                   .fillColor(COLORS.primary)
+                   .font('SarabunBold')
+                   .text(level, 85, y);
+                
+                // School name
+                doc.fontSize(10)
+                   .fillColor(COLORS.text)
+                   .font('Sarabun')
+                   .text(school, 85, y + 15);
+                
+                // Major and year (Right Aligned roughly)
+                if (major || year) {
+                    doc.fontSize(9)
+                       .fillColor(COLORS.label)
+                       .text(`${major || '-'}  |  ปีที่จบ: ${year || '-'}`, 300, y + 15, { width: 200, align: 'right' });
+                }
+            }
+
+            // Education entries
             if (data.education.high_school.school) {
-                addEducationItem(doc, leftColX, leftY, leftColWidth,
-                    'มัธยมศึกษา',
+                addEducationEntry(doc, 'มัธยมศึกษา / เทียบเท่า',
                     data.education.high_school.school,
                     data.education.high_school.major,
-                    data.education.high_school.year
-                );
-                leftY += 45;
+                    data.education.high_school.year,
+                    yPos);
+                yPos += 50;
             }
             
             if (data.education.vocational.school) {
-                addEducationItem(doc, leftColX, leftY, leftColWidth,
-                    'ปวช./ปวส.',
+                addEducationEntry(doc, 'ปวช. / ปวส.',
                     data.education.vocational.school,
                     data.education.vocational.major,
-                    data.education.vocational.year
-                );
-                leftY += 45;
+                    data.education.vocational.year,
+                    yPos);
+                yPos += 50;
             }
             
             if (data.education.bachelor.school) {
-                addEducationItem(doc, leftColX, leftY, leftColWidth,
-                    'ปริญญาตรี',
+                addEducationEntry(doc, 'ปริญญาตรี',
                     data.education.bachelor.school,
                     data.education.bachelor.major,
-                    data.education.bachelor.year
-                );
-                leftY += 45;
+                    data.education.bachelor.year,
+                    yPos);
+                yPos += 50;
             }
             
             if (data.education.other.school) {
-                addEducationItem(doc, leftColX, leftY, leftColWidth,
-                    'อื่นๆ',
+                addEducationEntry(doc, 'อื่นๆ',
                     data.education.other.school,
                     data.education.other.major,
-                    data.education.other.year
-                );
-                leftY += 45;
+                    data.education.other.year,
+                    yPos);
+                yPos += 50;
+            }
+
+            // Education used for application (Modern Highlight Box)
+            if (data.education.education_used) {
+                yPos += 5;
+                doc.roundedRect(60, yPos - 5, doc.page.width - 120, 30, 6)
+                   .fillOpacity(0.1)
+                   .fill(COLORS.secondary);
+                
+                doc.fillOpacity(1)
+                   .fontSize(10)
+                   .fillColor(COLORS.secondary)
+                   .font('SarabunBold')
+                   .text('วุฒิการศึกษาที่ใช้สมัคร:', 75, yPos + 5);
+                
+                doc.fillColor(COLORS.text)
+                   .font('Sarabun')
+                   .text(data.education.education_used, 230, yPos + 5);
+                
+                yPos += 40;
             }
             
-            // Additional Info
-            if (leftY < 650) {
-                addSectionTitle(doc, '✨ ข้อมูลเพิ่มเติม', leftColX, leftY, '#4FACFE');
-                leftY += 25;
-                
-                if (data.additional_info.special_skills) {
-                    addDetailItem(doc, leftColX, leftY, '🌟 ทักษะพิเศษ', 
-                        data.additional_info.special_skills, leftColWidth);
-                    leftY += 22;
-                }
-                
-                if (data.additional_info.expected_salary) {
-                    addDetailItem(doc, leftColX, leftY, '💰 เงินเดือนที่คาดหวัง', 
-                        `${data.additional_info.expected_salary} บาท`, leftColWidth);
-                    leftY += 22;
-                }
-                
-                if (data.additional_info.start_date) {
-                    addDetailItem(doc, leftColX, leftY, '📅 เริ่มงานได้', 
-                        data.additional_info.start_date, leftColWidth);
-                    leftY += 22;
-                }
-                
-                if (data.additional_info.has_disease && data.additional_info.has_disease !== 'ไม่มี') {
-                    addDetailItem(doc, leftColX, leftY, '🏥 โรคประจำตัว', 
-                        data.additional_info.disease_detail || data.additional_info.has_disease, leftColWidth);
-                    leftY += 22;
-                }
+            // Check page break
+            if (yPos > 680) {
+                doc.addPage();
+                yPos = 60;
             }
             
-            // RIGHT COLUMN
-            let rightY = yPos;
+            // ====================================================
+            // SECTION: WORK EXPERIENCE
+            // ====================================================
             
-            // Work Experience
-            addSectionTitle(doc, '💼 ประสบการณ์การทำงาน', rightColX, rightY, '#3A7BD5');
-            rightY += 30;
+            addModernSectionHeader(doc, '💼 ประสบการณ์การทำงาน', yPos);
+            yPos += 40;
             
             if (data.work_experience.length > 0) {
                 data.work_experience.forEach((work, index) => {
-                    // Timeline bullet
-                    doc.circle(rightColX + 5, rightY + 5, 4)
-                       .fill('#3A7BD5');
-                    
+                    // Card Container
+                    doc.roundedRect(60, yPos, doc.page.width - 120, 75, 8)
+                       .lineWidth(0.5)
+                       .strokeColor(COLORS.border)
+                       .stroke();
+
                     // Position
-                    doc.fontSize(11)
-                       .fillColor('#2c3e50')
+                    doc.fontSize(12)
+                       .fillColor(COLORS.text)
                        .font('SarabunBold')
-                       .text(work.position || 'ตำแหน่งงาน', rightColX + 18, rightY, {
-                           width: rightColWidth - 18
-                       });
-                    rightY += 17;
+                       .text(`${work.position || 'ตำแหน่ง'}`, 75, yPos + 10);
                     
                     // Company
                     doc.fontSize(10)
-                       .fillColor('#34495e')
+                       .fillColor(COLORS.secondary)
                        .font('Sarabun')
-                       .text(work.company, rightColX + 18, rightY, {
-                           width: rightColWidth - 18
-                       });
-                    rightY += 16;
+                       .text(work.company, 75, yPos + 28);
                     
-                    // Duration
+                    // Date
                     doc.fontSize(9)
-                       .fillColor('#7f8c8d')
-                       .text(`${work.start || '-'} ถึง ${work.end || '-'}`, 
-                           rightColX + 18, rightY, {
-                               width: rightColWidth - 18
-                           });
-                    rightY += 14;
+                       .fillColor(COLORS.label)
+                       .text(`⏱ ${work.start || '-'} ถึง ${work.end || '-'}`, doc.page.width - 250, yPos + 10, { align: 'right' });
                     
-                    // Reason for leaving
                     if (work.reason) {
-                        doc.fontSize(8)
-                           .fillColor('#95a5a6')
-                           .text(`เหตุผล: ${work.reason}`, rightColX + 18, rightY, {
-                               width: rightColWidth - 18
-                           });
-                        rightY += 14;
+                        doc.fontSize(9)
+                           .fillColor(COLORS.label)
+                           .text(`สาเหตุที่ออก: ${work.reason}`, 75, yPos + 48, { width: 450 });
                     }
                     
-                    rightY += 20;
+                    yPos += 90;
                     
-                    // Page break check
-                    if (rightY > 700 && index < data.work_experience.length - 1) {
+                    // Check page break
+                    if (yPos > 680) {
                         doc.addPage();
-                        rightY = 60;
-                        addSectionTitle(doc, '💼 ประสบการณ์การทำงาน (ต่อ)', rightColX, rightY, '#3A7BD5');
-                        rightY += 30;
+                        yPos = 60;
                     }
                 });
             } else {
                 doc.fontSize(10)
-                   .fillColor('#95a5a6')
+                   .fillColor(COLORS.label)
                    .font('Sarabun')
-                   .text('ไม่มีประสบการณ์ทำงาน', rightColX + 18, rightY);
-                rightY += 30;
+                   .text('• ไม่มีประสบการณ์ทำงาน', 75, yPos);
+                yPos += 35;
             }
             
-            // Motivation (if space available or new page)
-            if (data.additional_info.motivation) {
-                if (rightY > 600) {
-                    doc.addPage();
-                    rightY = 60;
+            // Check page break
+            if (yPos > 650) {
+                doc.addPage();
+                yPos = 60;
+            }
+            
+            // ====================================================
+            // SECTION: ADDITIONAL INFORMATION
+            // ====================================================
+            
+            addModernSectionHeader(doc, '✨ ข้อมูลเพิ่มเติม', yPos);
+            yPos += 40;
+
+            // Health Information
+            if (data.additional_info.has_disease) {
+                addCleanField(doc, 'โรคประจำตัว', data.additional_info.has_disease, leftCol, yPos);
+                yPos += 22;
+                
+                if (data.additional_info.disease_detail) {
+                    doc.fontSize(9)
+                       .fillColor('#e74c3c') // Red for alerts
+                       .font('Sarabun')
+                       .text(`รายละเอียด: ${data.additional_info.disease_detail}`, leftCol + 20, yPos, { width: 460 });
+                    yPos += 22;
                 }
+            }
+
+            // Criminal Record
+            if (data.additional_info.has_criminal_record) {
+                addCleanField(doc, 'ประวัติอาชญากรรม', data.additional_info.has_criminal_record, leftCol, yPos);
+                yPos += 22;
                 
-                addSectionTitle(doc, '💭 เหตุผลที่ต้องการร่วมงาน', rightColX, rightY, '#3A7BD5');
-                rightY += 25;
-                
-                // Motivation box
-                doc.roundedRect(rightColX - 5, rightY - 5, rightColWidth + 10, 90, 8)
+                if (data.additional_info.criminal_detail) {
+                    doc.fontSize(9)
+                       .fillColor('#e74c3c')
+                       .font('Sarabun')
+                       .text(`รายละเอียด: ${data.additional_info.criminal_detail}`, leftCol + 20, yPos, { width: 460 });
+                    yPos += 22;
+                }
+            }
+            
+            if (data.additional_info.special_skills) {
+                addCleanField(doc, '🌟 ทักษะพิเศษ', data.additional_info.special_skills, leftCol, yPos);
+                yPos += 25;
+            }
+            
+            // Salary & Start Date Highlight
+            if (data.additional_info.expected_salary || data.additional_info.start_date) {
+                doc.roundedRect(60, yPos - 5, doc.page.width - 120, 35, 5)
                    .fillOpacity(0.05)
-                   .fill('#3A7BD5');
+                   .fill(COLORS.primary);
+                doc.fillOpacity(1);
+
+                if (data.additional_info.expected_salary) {
+                    addCleanField(doc, '💰 เงินเดือนที่คาดหวัง', `${data.additional_info.expected_salary} บาท`, leftCol + 10, yPos + 5);
+                }
+                if (data.additional_info.start_date) {
+                    addCleanField(doc, '📅 สามารถเริ่มงานได้', data.additional_info.start_date, rightCol, yPos + 5);
+                }
+                yPos += 45;
+            }
+            
+            // Motivation (special card)
+            if (data.additional_info.motivation) {
+                yPos += 10;
                 
-                doc.fillOpacity(1)
-                   .fontSize(9)
-                   .fillColor('#2c3e50')
+                // Modern Box for Motivation
+                doc.roundedRect(60, yPos - 5, doc.page.width - 120, 80, 8)
+                   .lineWidth(0.5)
+                   .strokeColor(COLORS.border)
+                   .stroke();
+                
+                doc.fillColor(COLORS.secondary)
+                   .fontSize(10)
+                   .font('SarabunBold')
+                   .text('💭 เหตุผลที่ต้องการร่วมงาน', 75, yPos + 10);
+                
+                yPos += 25;
+                
+                doc.fontSize(9)
+                   .fillColor(COLORS.text)
                    .font('Sarabun')
-                   .text(data.additional_info.motivation, rightColX + 5, rightY + 5, {
-                       width: rightColWidth - 10,
-                       lineGap: 3
+                   .text(data.additional_info.motivation, 75, yPos, { 
+                       width: doc.page.width - 150,
+                       align: 'left',
+                       lineGap: 4
                    });
             }
             
             // ====================================================
-            // ELEGANT FOOTER
+            // MODERN FOOTER
             // ====================================================
             
-            const footerY = doc.page.height - 40;
+            const footerY = doc.page.height - 50;
             
-            // Footer line
-            doc.moveTo(50, footerY - 10)
-               .lineTo(doc.page.width - 50, footerY - 10)
-               .strokeOpacity(0.2)
-               .lineWidth(1)
-               .stroke('#4FACFE');
+            // Top border line (Faded)
+            doc.moveTo(60, footerY - 15)
+               .lineTo(doc.page.width - 60, footerY - 15)
+               .lineWidth(0.5)
+               .strokeOpacity(0.3)
+               .strokeColor(COLORS.primary)
+               .stroke();
             
             doc.strokeOpacity(1)
                .fontSize(8)
-               .fillColor('#95a5a6')
+               .fillColor(COLORS.label)
                .font('Sarabun')
-               .text(`สร้างโดยระบบรับสมัครงานอัตโนมัติ • วันที่: ${new Date().toLocaleDateString('th-TH')}`, 
-                   0, footerY, { 
+               .text('สร้างโดยระบบรับสมัครงานอัตโนมัติ | Generated by Job Application System', 
+                   60, footerY, { 
                        align: 'center',
-                       width: doc.page.width
+                       width: doc.page.width - 120
                    });
             
             doc.fontSize(7)
                .fillColor('#bdc3c7')
                .text('© 2024 Made with 💚 in Thailand', 
-                   0, footerY + 15, {
+                   60, footerY + 15, {
                        align: 'center',
-                       width: doc.page.width
+                       width: doc.page.width - 120
                    });
             
             doc.end();
-            
-            // ====================================================
-            // HELPER FUNCTIONS
-            // ====================================================
-            
-            function interpolateColor(color1, color2, factor) {
-                return color1.map((c, i) => Math.round(c + factor * (color2[i] - c)));
-            }
-            
-            function drawInfoCard(doc, x, y, width, height, title, items, color) {
-                // Card shadow
-                doc.roundedRect(x + 2, y + 2, width, height, 8)
-                   .fillOpacity(0.1)
-                   .fill('#000000');
-                
-                // Card background
-                doc.roundedRect(x, y, width, height, 8)
-                   .fillOpacity(1)
-                   .fill('#FFFFFF');
-                
-                // Card border
-                doc.roundedRect(x, y, width, height, 8)
-                   .strokeOpacity(0.15)
-                   .lineWidth(1)
-                   .stroke(color);
-                
-                doc.strokeOpacity(1);
-                
-                // Title
-                doc.fontSize(10)
-                   .fillColor(color)
-                   .font('SarabunBold')
-                   .text(title, x + 10, y + 10, { width: width - 20 });
-                
-                // Items
-                let itemY = y + 28;
-                items.forEach(item => {
-                    if (item) {
-                        doc.fontSize(8)
-                           .fillColor('#2c3e50')
-                           .font('Sarabun')
-                           .text(item, x + 10, itemY, { 
-                               width: width - 20,
-                               ellipsis: true
-                           });
-                        itemY += 13;
-                    }
-                });
-            }
-            
-            function addSectionTitle(doc, title, x, y, color) {
-                // Accent line
-                doc.roundedRect(x - 5, y, 3, 18, 1.5)
-                   .fill(color);
-                
-                // Title
-                doc.fontSize(12)
-                   .fillColor('#2c3e50')
-                   .font('SarabunBold')
-                   .text(title, x + 5, y + 1);
-            }
-            
-            function addEducationItem(doc, x, y, width, level, school, major, year) {
-                // Level badge
-                doc.roundedRect(x, y, 75, 18, 4)
-                   .fillOpacity(0.1)
-                   .fill('#4FACFE');
-                
-                doc.fillOpacity(1)
-                   .fontSize(9)
-                   .fillColor('#4FACFE')
-                   .font('SarabunBold')
-                   .text(level, x + 5, y + 4);
-                
-                // School
-                doc.fontSize(10)
-                   .fillColor('#2c3e50')
-                   .font('Sarabun')
-                   .text(school, x, y + 23, { width: width });
-                
-                // Major and year
-                if (major || year) {
-                    doc.fontSize(9)
-                       .fillColor('#7f8c8d')
-                       .text(`${major || '-'} • ${year || '-'}`, x, y + 37, { width: width });
-                }
-            }
-            
-            function addDetailItem(doc, x, y, label, value, width) {
-                doc.fontSize(9)
-                   .fillColor('#7f8c8d')
-                   .font('Sarabun')
-                   .text(label, x, y);
-                
-                doc.fontSize(9)
-                   .fillColor('#2c3e50')
-                   .text(`: ${value}`, x + doc.widthOfString(label), y, {
-                       width: width - doc.widthOfString(label)
-                   });
-            }
-            
+
         } catch (error) {
             reject(error);
         }
@@ -592,7 +650,7 @@ app.get('/', (req, res) => {
 });
 
 // ====================================================
-// JOB APPLICATION ENDPOINT
+// JOB APPLICATION ENDPOINT WITH PDF
 // ====================================================
 
 app.post('/api/job-application', upload.fields([
@@ -739,8 +797,8 @@ app.post('/api/job-application', upload.fields([
             status: 'pending'
         };
         
-        // Generate beautiful PDF
-        console.log('Generating beautiful PDF...');
+        // Generate PDF with improved design
+        console.log('Generating PDF with improved design...');
         const pdfBuffer = await generateJobApplicationPDF(application);
         console.log('PDF generated successfully');
         
@@ -780,9 +838,9 @@ app.post('/api/job-application', upload.fields([
                 <style>
                     body { font-family: 'Sarabun', Arial, sans-serif; line-height: 1.6; color: #333; }
                     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
                     .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-                    .info-box { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #4FACFE; border-radius: 5px; }
+                    .info-box { background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #667eea; border-radius: 5px; }
                     .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
                 </style>
             </head>
@@ -823,137 +881,33 @@ app.post('/api/job-application', upload.fields([
             </html>
         `;
         
-        await sendEmail(
-            email, 
-            '🎉 ยืนยันการรับใบสมัครงาน', 
-            applicantEmailHTML
-        );
-        
-        // Send notification email to admin with PDF
-        const adminEmailHTML = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <style>
-                    body { font-family: 'Sarabun', Arial, sans-serif; line-height: 1.6; }
-                    .header { background: #4FACFE; color: white; padding: 20px; }
-                    .alert { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
-                    .section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
-                    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                    table td { padding: 8px; border-bottom: 1px solid #ddd; }
-                    table td:first-child { font-weight: bold; width: 200px; }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <h1>🆕 มีใบสมัครงานใหม่!</h1>
-                    <p>รหัสใบสมัคร: ${application.id}</p>
-                </div>
-                
-                <div class="alert">
-                    <strong>⚠️ แจ้งเตือน:</strong> มีผู้สมัครงานตำแหน่ง <strong>${position}</strong> 
-                    กรุณาตรวจสอบไฟล์ PDF และรูปถ่ายที่แนบมาพร้อมอีเมลนี้
-                </div>
-                
-                <div class="section">
-                    <h2>📋 สรุปข้อมูลผู้สมัคร</h2>
-                    <table>
-                        <tr><td>ชื่อ-นามสกุล:</td><td>${fullname_th}</td></tr>
-                        <tr><td>ตำแหน่งที่สมัคร:</td><td>${position}</td></tr>
-                        <tr><td>เบอร์โทร:</td><td>${phone}</td></tr>
-                        <tr><td>LINE ID:</td><td>${line_id}</td></tr>
-                        <tr><td>อีเมล:</td><td>${email}</td></tr>
-                        <tr><td>อายุ:</td><td>${age} ปี</td></tr>
-                        <tr><td>สัญชาติ:</td><td>${nationality}</td></tr>
-                        <tr><td>เชื้อชาติ:</td><td>${ethnicity}</td></tr>
-                        <tr><td>ศาสนา:</td><td>${religion}</td></tr>
-                        <tr><td>วุฒิการศึกษา:</td><td>${education_used}</td></tr>
-                        <tr><td>เงินเดือนที่คาดหวัง:</td><td>${expected_salary ? expected_salary + ' บาท' : 'ไม่ระบุ'}</td></tr>
-                        <tr><td>โรคประจำตัว:</td><td>${has_disease}${disease_detail ? ' - ' + disease_detail : ''}</td></tr>
-                        <tr><td>ประวัติอาชญากรรม:</td><td>${has_criminal_record}${criminal_detail ? ' - ' + criminal_detail : ''}</td></tr>
-                    </table>
-                </div>
-                
-                <div class="section">
-                    <h3>🔎 ไฟล์ที่แนบมา:</h3>
-                    <ul>
-                        <li>✅ ใบสมัครงาน (PDF) - <strong>Job_Application_${fullname_th}_${application.id}.pdf</strong></li>
-                        <li>✅ รูปถ่ายหน้าตรง - <strong>Photo_${fullname_th}_${req.files.photo[0].originalname}</strong></li>
-                        ${req.files.resume ? `<li>✅ เรซูเม่ - <strong>${req.files.resume[0].originalname}</strong></li>` : '<li>❌ ไม่มีไฟล์เรซูเม่แนบมา</li>'}
-                    </ul>
-                </div>
-                
-                <div class="section">
-                    <h3>⏰ ข้อมูลการส่ง:</h3>
-                    <p><strong>วันที่:</strong> ${new Date().toLocaleDateString('th-TH', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    })}</p>
-                    <p><strong>สถานะ:</strong> <span style="color: #ffc107;">⏳ รอการพิจารณา</span></p>
-                </div>
-                
-                <hr style="margin: 30px 0;">
-                <p style="text-align: center; color: #666;">
-                    <strong>📌 Action Required:</strong> กรุณาดาวน์โหลดและตรวจสอบไฟล์ PDF และรูปถ่ายที่แนบมา<br>
-                    <em>และติดต่อผู้สมัคร ภายใน 7 วันทำการ</em>
-                </p>
-            </body>
-            </html>
+        await sendEmail(email, 'ยืนยันการรับใบสมัครงาน (Application Received)', applicantEmailHTML);
+
+        // Send notification to HR
+        const hrEmailHTML = `
+            <h2>📄 มีใบสมัครงานใหม่</h2>
+            <p><strong>ตำแหน่ง:</strong> ${position}</p>
+            <p><strong>ผู้สมัคร:</strong> ${fullname_th}</p>
+            <p>กรุณาตรวจสอบไฟล์แนบ</p>
         `;
         
-        console.log('Sending email to admin...');
-        await sendEmail(
-            process.env.ADMIN_EMAIL || 'forcon674@outlook.com',
-            `🆕 ใบสมัครงานใหม่ - ${position} - ${fullname_th}`,
-            adminEmailHTML,
-            attachments
-        );
-        console.log('Email sent successfully');
+        await sendEmail(process.env.HR_EMAIL || process.env.EMAIL_USER, `New Job Application: ${position} - ${fullname_th}`, hrEmailHTML, attachments);
         
-        // Log application
-        console.log('New Job Application:', application);
-        
-        // Return success response
         res.json({
             success: true,
-            message: 'ส่งใบสมัครงานสำเร็จ! เราจะติดต่อกลับ ภายใน 7 วันทำการ',
-            application_id: application.id
+            message: 'บันทึกใบสมัครและส่งอีเมลเรียบร้อยแล้ว',
+            applicationId: application.id
         });
-        
+
     } catch (error) {
-        console.error('Error processing job application:', error);
+        console.error('Error processing application:', error);
         res.status(500).json({
             success: false,
-            message: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
+            message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+            error: error.message
         });
     }
 });
 
-// ====================================================
-// ERROR HANDLING
-// ====================================================
-
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        message: 'Endpoint not found'
-    });
-});
-
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        success: false,
-        message: 'Something went wrong!'
-    });
-});
-
-// ====================================================
-// EXPORT FOR VERCEL
-// ====================================================
-
+// Export the app
 module.exports = app;
