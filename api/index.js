@@ -1,4 +1,4 @@
-// api/index.js - Beautiful PDFKit with Thai Font (IMPROVED VERSION)
+// api/index.js - PDFKit with Thai Font (STABLE & WORKING VERSION)
 // ====================================================
 
 const express = require('express');
@@ -29,29 +29,31 @@ const transporter = nodemailer.createTransport({
 });
 
 // ====================================================
-// DOWNLOAD THAI FONT (Sarabun from Google Fonts)
+// DOWNLOAD THAI FONT
 // ====================================================
 
 let thaiFont = null;
 let thaiFontBold = null;
 
 async function downloadThaiFont() {
-    if (thaiFont && thaiFontBold) return { regular: thaiFont, bold: thaiFontBold };
+    if (thaiFont && thaiFontBold) {
+        return { regular: thaiFont, bold: thaiFontBold };
+    }
     
     try {
         console.log('Downloading Thai fonts...');
         
-        // ดาวน์โหลดฟอนต์ธรรมดา
+        // Regular font
         const regularResponse = await axios.get(
             'https://github.com/cadsondemak/Sarabun/raw/master/fonts/ttf/Sarabun-Regular.ttf',
-            { responseType: 'arraybuffer', timeout: 10000 }
+            { responseType: 'arraybuffer', timeout: 15000 }
         );
         thaiFont = Buffer.from(regularResponse.data);
         
-        // ดาวน์โหลดฟอนต์ Bold
+        // Bold font
         const boldResponse = await axios.get(
             'https://github.com/cadsondemak/Sarabun/raw/master/fonts/ttf/Sarabun-Bold.ttf',
-            { responseType: 'arraybuffer', timeout: 10000 }
+            { responseType: 'arraybuffer', timeout: 15000 }
         );
         thaiFontBold = Buffer.from(boldResponse.data);
         
@@ -59,8 +61,42 @@ async function downloadThaiFont() {
         return { regular: thaiFont, bold: thaiFontBold };
         
     } catch (error) {
-        console.error('Error downloading Thai fonts:', error.message);
-        throw new Error('Cannot download Thai fonts');
+        console.error('Error processing job application:', error);
+        console.error('Error stack:', error.stack);
+        
+        res.status(500).json({
+            success: false,
+            message: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+// ====================================================
+// ERROR HANDLING
+// ====================================================
+
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'Endpoint not found'
+    });
+});
+
+app.use((err, req, res, next) => {
+    console.error('Global error handler:', err.stack);
+    res.status(500).json({
+        success: false,
+        message: 'Something went wrong!'
+    });
+});
+
+// ====================================================
+// EXPORT FOR VERCEL
+// ====================================================
+
+module.exports = app; downloading Thai fonts:', error.message);
+        throw new Error('Cannot download Thai fonts: ' + error.message);
     }
 }
 
@@ -85,14 +121,17 @@ async function sendEmail(to, subject, html, attachments = []) {
 }
 
 // ====================================================
-// BEAUTIFUL PDF GENERATION FUNCTION
+// PDF GENERATION FUNCTION
 // ====================================================
 
 async function generateJobApplicationPDF(data) {
     return new Promise(async (resolve, reject) => {
         try {
-            // ดาวน์โหลดฟอนต์ไทย
+            console.log('Starting PDF generation...');
+            
+            // Download fonts
             const fonts = await downloadThaiFont();
+            console.log('Fonts ready');
             
             const doc = new PDFDocument({ 
                 size: 'A4',
@@ -102,38 +141,39 @@ async function generateJobApplicationPDF(data) {
             const chunks = [];
             
             doc.on('data', chunk => chunks.push(chunk));
-            doc.on('end', () => resolve(Buffer.concat(chunks)));
-            doc.on('error', reject);
+            doc.on('end', () => {
+                console.log('PDF generation completed');
+                resolve(Buffer.concat(chunks));
+            });
+            doc.on('error', (err) => {
+                console.error('PDF generation error:', err);
+                reject(err);
+            });
 
-            // ลงทะเบียนฟอนต์ไทย
+            // Register fonts
             doc.registerFont('Sarabun', fonts.regular);
             doc.registerFont('Sarabun-Bold', fonts.bold);
 
-            // สี Theme
+            // Colors
             const primaryColor = '#667eea';
-            const secondaryColor = '#764ba2';
             const textColor = '#2d3748';
             const lightBg = '#f7fafc';
-            const borderColor = '#e2e8f0';
 
             let yPos = 40;
 
             // ====================================================
-            // HEADER - ทำให้สวยงามมากขึ้น
+            // HEADER
             // ====================================================
             
-            // Background gradient ด้านบน
+            // Gradient background
             for (let i = 0; i < 80; i++) {
                 const ratio = i / 80;
                 const r = Math.round(102 + ratio * (118 - 102));
                 const g = Math.round(126 + ratio * (75 - 126));
                 const b = Math.round(234 + ratio * (162 - 234));
-                
-                doc.rect(0, i, doc.page.width, 1)
-                   .fill(`rgb(${r}, ${g}, ${b})`);
+                doc.rect(0, i, doc.page.width, 1).fill(`rgb(${r}, ${g}, ${b})`);
             }
             
-            // Title
             doc.fillColor('#FFFFFF')
                .font('Sarabun-Bold')
                .fontSize(26)
@@ -145,9 +185,8 @@ async function generateJobApplicationPDF(data) {
             
             yPos = 100;
             
-            // Application Info Bar
-            doc.rect(40, yPos, doc.page.width - 80, 35)
-               .fill(lightBg);
+            // Application Info
+            doc.rect(40, yPos, doc.page.width - 80, 35).fill(lightBg);
             
             doc.fillColor(textColor)
                .fontSize(10)
@@ -172,15 +211,14 @@ async function generateJobApplicationPDF(data) {
             yPos += 60;
             
             // ====================================================
-            // SECTION 1: ข้อมูลส่วนตัว
+            // SECTION: Personal Information
             // ====================================================
             
-            addBeautifulSectionHeader(doc, 'ข้อมูลส่วนตัว', yPos);
+            addSectionHeader(doc, 'ข้อมูลส่วนตัว', yPos);
             yPos += 35;
             
-            // ตำแหน่งที่สมัคร - Highlight
-            doc.rect(40, yPos - 3, doc.page.width - 80, 22)
-               .fill('#edf2f7');
+            // Position highlight
+            doc.rect(40, yPos - 3, doc.page.width - 80, 22).fill('#edf2f7');
             
             doc.fillColor(primaryColor)
                .fontSize(11)
@@ -193,40 +231,25 @@ async function generateJobApplicationPDF(data) {
             
             yPos += 30;
             
-            // ข้อมูลส่วนตัว - 2 คอลัมน์
-            addTwoColumnField(doc, 
-                'ชื่อ-นามสกุล (ไทย):', data.personal_info.fullname_th,
-                'Full Name (English):', data.personal_info.fullname_en || '-',
-                yPos
-            );
+            // Personal info fields
+            addTwoColumn(doc, 'ชื่อ-นามสกุล (ไทย):', data.personal_info.fullname_th,
+                         'Full Name (English):', data.personal_info.fullname_en || '-', yPos);
             yPos += 20;
             
-            addTwoColumnField(doc,
-                'เพศ:', data.personal_info.gender,
-                'วันเกิด:', `${data.personal_info.birthdate} (${data.personal_info.age} ปี)`,
-                yPos
-            );
+            addTwoColumn(doc, 'เพศ:', data.personal_info.gender,
+                         'วันเกิด:', `${data.personal_info.birthdate} (${data.personal_info.age} ปี)`, yPos);
             yPos += 20;
             
-            addTwoColumnField(doc,
-                'สัญชาติ:', data.personal_info.nationality,
-                'เชื้อชาติ:', data.personal_info.ethnicity,
-                yPos
-            );
+            addTwoColumn(doc, 'สัญชาติ:', data.personal_info.nationality,
+                         'เชื้อชาติ:', data.personal_info.ethnicity, yPos);
             yPos += 20;
             
-            addTwoColumnField(doc,
-                'ศาสนา:', data.personal_info.religion,
-                'เลขบัตรประชาชน:', data.personal_info.id_card,
-                yPos
-            );
+            addTwoColumn(doc, 'ศาสนา:', data.personal_info.religion,
+                         'เลขบัตรประชาชน:', data.personal_info.id_card, yPos);
             yPos += 20;
             
-            addTwoColumnField(doc,
-                'เบอร์โทร:', data.personal_info.phone,
-                'LINE ID:', data.personal_info.line_id,
-                yPos
-            );
+            addTwoColumn(doc, 'เบอร์โทร:', data.personal_info.phone,
+                         'LINE ID:', data.personal_info.line_id, yPos);
             yPos += 20;
             
             addSingleField(doc, 'อีเมล:', data.personal_info.email, yPos);
@@ -237,8 +260,7 @@ async function generateJobApplicationPDF(data) {
             
             addSingleField(doc, 'ตำบล/อำเภอ/จังหวัด:', 
                 `${data.personal_info.address.subdistrict}, ${data.personal_info.address.district}, ${data.personal_info.address.province} ${data.personal_info.address.zipcode}`,
-                yPos
-            );
+                yPos);
             yPos += 40;
             
             // Check new page
@@ -248,79 +270,53 @@ async function generateJobApplicationPDF(data) {
             }
             
             // ====================================================
-            // SECTION 2: ประวัติการศึกษา
+            // SECTION: Education
             // ====================================================
             
-            addBeautifulSectionHeader(doc, 'ประวัติการศึกษา', yPos);
+            addSectionHeader(doc, 'ประวัติการศึกษา', yPos);
             yPos += 35;
             
-            let hasEducation = false;
-            
             if (data.education.high_school.school) {
-                addEducationBox(doc, 'มัธยมศึกษา/เทียบเท่า', 
+                addEducationItem(doc, 'มัธยมศึกษา/เทียบเท่า', 
                     data.education.high_school.school,
                     data.education.high_school.major,
-                    data.education.high_school.year,
-                    yPos
-                );
+                    data.education.high_school.year, yPos);
                 yPos += 45;
-                hasEducation = true;
             }
             
             if (data.education.vocational.school) {
-                addEducationBox(doc, 'ปวช./ปวส.', 
+                addEducationItem(doc, 'ปวช./ปวส.', 
                     data.education.vocational.school,
                     data.education.vocational.major,
-                    data.education.vocational.year,
-                    yPos
-                );
+                    data.education.vocational.year, yPos);
                 yPos += 45;
-                hasEducation = true;
             }
             
             if (data.education.bachelor.school) {
-                addEducationBox(doc, 'ปริญญาตรี', 
+                addEducationItem(doc, 'ปริญญาตรี', 
                     data.education.bachelor.school,
                     data.education.bachelor.major,
-                    data.education.bachelor.year,
-                    yPos
-                );
+                    data.education.bachelor.year, yPos);
                 yPos += 45;
-                hasEducation = true;
             }
             
             if (data.education.other.school) {
-                addEducationBox(doc, 'อื่นๆ', 
+                addEducationItem(doc, 'อื่นๆ', 
                     data.education.other.school,
                     data.education.other.major,
-                    data.education.other.year,
-                    yPos
-                );
+                    data.education.other.year, yPos);
                 yPos += 45;
-                hasEducation = true;
             }
             
-            if (!hasEducation) {
-                doc.fillColor('#a0aec0')
-                   .fontSize(10)
-                   .font('Sarabun')
-                   .text('ไม่มีข้อมูลการศึกษา', 50, yPos);
-                yPos += 20;
-            }
-            
-            // วุฒิการศึกษาที่ใช้สมัคร
-            doc.rect(40, yPos - 3, doc.page.width - 80, 22)
-               .fill('#edf2f7');
-            
+            // Education used
+            doc.rect(40, yPos - 3, doc.page.width - 80, 22).fill('#edf2f7');
             doc.fillColor(primaryColor)
                .fontSize(11)
                .font('Sarabun-Bold')
                .text('วุฒิการศึกษาที่ใช้สมัคร:', 50, yPos);
-            
             doc.fillColor(textColor)
                .font('Sarabun-Bold')
                .text(data.education.education_used, 200, yPos);
-            
             yPos += 40;
             
             // Check new page
@@ -330,21 +326,20 @@ async function generateJobApplicationPDF(data) {
             }
             
             // ====================================================
-            // SECTION 3: ประสบการณ์การทำงาน
+            // SECTION: Work Experience
             // ====================================================
             
-            addBeautifulSectionHeader(doc, 'ประสบการณ์การทำงาน', yPos);
+            addSectionHeader(doc, 'ประสบการณ์การทำงาน', yPos);
             yPos += 35;
             
             if (data.work_experience.length > 0) {
                 data.work_experience.forEach((work, index) => {
-                    // Check new page
                     if (yPos > 650) {
                         doc.addPage();
                         yPos = 50;
                     }
                     
-                    addWorkExperienceCard(doc, work, index + 1, yPos);
+                    addWorkCard(doc, work, index + 1, yPos);
                     yPos += 110;
                 });
             } else {
@@ -362,16 +357,15 @@ async function generateJobApplicationPDF(data) {
             }
             
             // ====================================================
-            // SECTION 4: ข้อมูลเพิ่มเติม
+            // SECTION: Additional Info
             // ====================================================
             
-            addBeautifulSectionHeader(doc, 'ข้อมูลเพิ่มเติม', yPos);
+            addSectionHeader(doc, 'ข้อมูลเพิ่มเติม', yPos);
             yPos += 35;
             
             if (data.additional_info.has_disease) {
                 addSingleField(doc, 'มีโรคประจำตัวหรือไม่:', data.additional_info.has_disease, yPos);
                 yPos += 20;
-                
                 if (data.additional_info.disease_detail) {
                     addSingleField(doc, 'รายละเอียด:', data.additional_info.disease_detail, yPos);
                     yPos += 20;
@@ -381,7 +375,6 @@ async function generateJobApplicationPDF(data) {
             if (data.additional_info.has_criminal_record) {
                 addSingleField(doc, 'เคยต้องโทษหรือไม่:', data.additional_info.has_criminal_record, yPos);
                 yPos += 20;
-                
                 if (data.additional_info.criminal_detail) {
                     addSingleField(doc, 'รายละเอียด:', data.additional_info.criminal_detail, yPos);
                     yPos += 20;
@@ -405,17 +398,12 @@ async function generateJobApplicationPDF(data) {
             
             if (data.additional_info.motivation) {
                 yPos += 5;
-                
-                doc.rect(40, yPos - 3, doc.page.width - 80, 60)
-                   .fill('#f0f4ff');
-                
+                doc.rect(40, yPos - 3, doc.page.width - 80, 60).fill('#f0f4ff');
                 doc.fillColor(primaryColor)
                    .fontSize(10)
                    .font('Sarabun-Bold')
                    .text('เหตุผลที่ต้องการร่วมงาน:', 50, yPos);
-                
                 yPos += 18;
-                
                 doc.fillColor(textColor)
                    .fontSize(10)
                    .font('Sarabun')
@@ -429,7 +417,7 @@ async function generateJobApplicationPDF(data) {
             const footerY = doc.page.height - 35;
             doc.moveTo(40, footerY - 10)
                .lineTo(doc.page.width - 40, footerY - 10)
-               .strokeColor(borderColor)
+               .strokeColor('#e2e8f0')
                .lineWidth(0.5)
                .stroke();
             
@@ -446,12 +434,8 @@ async function generateJobApplicationPDF(data) {
             // Helper Functions
             // ====================================================
             
-            function addBeautifulSectionHeader(doc, title, y) {
-                // Background bar
-                doc.rect(40, y - 5, doc.page.width - 80, 28)
-                   .fill(primaryColor);
-                
-                // Title
+            function addSectionHeader(doc, title, y) {
+                doc.rect(40, y - 5, doc.page.width - 80, 28).fill(primaryColor);
                 doc.fillColor('#FFFFFF')
                    .fontSize(14)
                    .font('Sarabun-Bold')
@@ -463,139 +447,82 @@ async function generateJobApplicationPDF(data) {
                    .fontSize(9)
                    .font('Sarabun-Bold')
                    .text(label, 50, y);
-                
                 doc.fillColor(textColor)
                    .fontSize(10)
                    .font('Sarabun')
                    .text(value || '-', 170, y, { width: doc.page.width - 210 });
             }
             
-            function addTwoColumnField(doc, label1, value1, label2, value2, y) {
-                const midPoint = doc.page.width / 2;
-                
-                // Left column
+            function addTwoColumn(doc, label1, value1, label2, value2, y) {
+                const mid = doc.page.width / 2;
                 doc.fillColor('#4a5568')
                    .fontSize(9)
                    .font('Sarabun-Bold')
                    .text(label1, 50, y);
-                
                 doc.fillColor(textColor)
                    .fontSize(10)
                    .font('Sarabun')
-                   .text(value1 || '-', 150, y, { width: midPoint - 160 });
-                
-                // Right column
+                   .text(value1 || '-', 150, y, { width: mid - 160 });
                 doc.fillColor('#4a5568')
                    .fontSize(9)
                    .font('Sarabun-Bold')
-                   .text(label2, midPoint + 10, y);
-                
+                   .text(label2, mid + 10, y);
                 doc.fillColor(textColor)
                    .fontSize(10)
                    .font('Sarabun')
-                   .text(value2 || '-', midPoint + 110, y, { width: midPoint - 120 });
+                   .text(value2 || '-', mid + 110, y, { width: mid - 120 });
             }
             
-            function addEducationBox(doc, level, school, major, year, y) {
-                // Box with border
+            function addEducationItem(doc, level, school, major, year, y) {
                 doc.roundedRect(40, y - 3, doc.page.width - 80, 38, 3)
-                   .fillAndStroke('#fafafa', borderColor);
-                
-                // Level badge
-                doc.rect(50, y + 5, 80, 18)
-                   .fill('#e6f0ff');
-                
+                   .fillAndStroke('#fafafa', '#e2e8f0');
+                doc.rect(50, y + 5, 80, 18).fill('#e6f0ff');
                 doc.fillColor(primaryColor)
                    .fontSize(9)
                    .font('Sarabun-Bold')
                    .text(level, 55, y + 9);
-                
-                // School info
                 doc.fillColor(textColor)
                    .fontSize(10)
                    .font('Sarabun')
                    .text(school, 140, y + 5);
-                
                 doc.fillColor('#718096')
                    .fontSize(9)
                    .text(`${major || '-'} | ${year || '-'}`, 140, y + 20);
             }
             
-            function addWorkExperienceCard(doc, work, number, y) {
-                // Card with shadow effect
+            function addWorkCard(doc, work, num, y) {
                 doc.roundedRect(40, y, doc.page.width - 80, 100, 5)
-                   .fillAndStroke('#ffffff', borderColor);
-                
-                doc.roundedRect(41, y + 1, doc.page.width - 82, 98, 5)
-                   .fill('#fafafa');
-                
-                // Header
-                doc.rect(40, y, doc.page.width - 80, 25)
-                   .fill('#f0f4ff');
-                
+                   .fillAndStroke('#ffffff', '#e2e8f0');
+                doc.roundedRect(41, y + 1, doc.page.width - 82, 98, 5).fill('#fafafa');
+                doc.rect(40, y, doc.page.width - 80, 25).fill('#f0f4ff');
                 doc.fillColor(primaryColor)
                    .fontSize(11)
                    .font('Sarabun-Bold')
-                   .text(`ประสบการณ์ที่ ${number}`, 50, y + 7);
+                   .text(`ประสบการณ์ที่ ${num}`, 50, y + 7);
                 
-                // Content
                 y += 32;
-                
-                doc.fillColor('#4a5568')
-                   .fontSize(9)
-                   .font('Sarabun-Bold')
-                   .text('บริษัท:', 50, y);
-                
-                doc.fillColor(textColor)
-                   .fontSize(10)
-                   .font('Sarabun')
-                   .text(work.company, 110, y);
-                
+                doc.fillColor('#4a5568').fontSize(9).font('Sarabun-Bold').text('บริษัท:', 50, y);
+                doc.fillColor(textColor).fontSize(10).font('Sarabun').text(work.company, 110, y);
                 y += 16;
-                
-                doc.fillColor('#4a5568')
-                   .fontSize(9)
-                   .font('Sarabun-Bold')
-                   .text('ตำแหน่ง:', 50, y);
-                
-                doc.fillColor(textColor)
-                   .fontSize(10)
-                   .font('Sarabun')
-                   .text(work.position || '-', 110, y);
-                
+                doc.fillColor('#4a5568').fontSize(9).font('Sarabun-Bold').text('ตำแหน่ง:', 50, y);
+                doc.fillColor(textColor).fontSize(10).font('Sarabun').text(work.position || '-', 110, y);
                 y += 16;
-                
-                doc.fillColor('#4a5568')
-                   .fontSize(9)
-                   .font('Sarabun-Bold')
-                   .text('ระยะเวลา:', 50, y);
-                
-                doc.fillColor(textColor)
-                   .fontSize(9)
-                   .font('Sarabun')
-                   .text(`${work.start || '-'} ถึง ${work.end || '-'}`, 110, y);
-                
+                doc.fillColor('#4a5568').fontSize(9).font('Sarabun-Bold').text('ระยะเวลา:', 50, y);
+                doc.fillColor(textColor).fontSize(9).font('Sarabun').text(`${work.start || '-'} ถึง ${work.end || '-'}`, 110, y);
                 y += 16;
-                
-                doc.fillColor('#4a5568')
-                   .fontSize(9)
-                   .font('Sarabun-Bold')
-                   .text('เหตุผล:', 50, y);
-                
-                doc.fillColor(textColor)
-                   .fontSize(9)
-                   .font('Sarabun')
-                   .text(work.reason || '-', 110, y, { width: doc.page.width - 150 });
+                doc.fillColor('#4a5568').fontSize(9).font('Sarabun-Bold').text('เหตุผล:', 50, y);
+                doc.fillColor(textColor).fontSize(9).font('Sarabun').text(work.reason || '-', 110, y, { width: doc.page.width - 150 });
             }
             
         } catch (error) {
+            console.error('PDF generation error:', error);
             reject(error);
         }
     });
 }
 
 // ====================================================
-// HEALTH CHECK ENDPOINT
+// ENDPOINTS
 // ====================================================
 
 app.get('/api/health', (req, res) => {
@@ -609,22 +536,17 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
     res.json({ 
         message: 'Job Application API',
-        endpoints: [
-            'GET  /api/health',
-            'POST /api/job-application'
-        ]
+        endpoints: ['GET  /api/health', 'POST /api/job-application']
     });
 });
-
-// ====================================================
-// JOB APPLICATION ENDPOINT
-// ====================================================
 
 app.post('/api/job-application', upload.fields([
     { name: 'resume', maxCount: 1 },
     { name: 'photo', maxCount: 1 }
 ]), async (req, res) => {
     try {
+        console.log('Received job application request');
+        
         const {
             position, fullname_th, fullname_en, gender, birthdate, age,
             nationality, ethnicity, religion, id_card, phone, line_id, email,
@@ -703,10 +625,9 @@ app.post('/api/job-application', upload.fields([
             status: 'pending'
         };
         
-        // Generate beautiful PDF
-        console.log('Generating beautiful PDF...');
+        console.log('Generating PDF...');
         const pdfBuffer = await generateJobApplicationPDF(application);
-        console.log('PDF generated successfully');
+        console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes');
         
         // Prepare attachments
         const attachments = [
@@ -730,9 +651,58 @@ app.post('/api/job-application', upload.fields([
             });
         }
         
-        // Send emails (same as before)
-        await sendEmail(email, '🎉 ยืนยันการรับใบสมัครงาน', `...`); // Email HTML same as before
-        await sendEmail(process.env.ADMIN_EMAIL || 'forcon674@outlook.com', `🆕 ใบสมัครงานใหม่ - ${position} - ${fullname_th}`, `...`, attachments);
+        // Send emails
+        console.log('Sending emails...');
+        
+        const applicantEmailHTML = `
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="font-family: Arial, sans-serif;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1>🌟 ยืนยันการสมัครงาน</h1>
+                        <h2>ขอบคุณที่สมัครงานกับเรา!</h2>
+                    </div>
+                    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                        <p>สวัสดีคุณ <strong>${fullname_th}</strong>,</p>
+                        <p>เราได้รับใบสมัครงานของคุณเรียบร้อยแล้ว 📋</p>
+                        <div style="background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #667eea; border-radius: 5px;">
+                            <h3>📋 ข้อมูลการสมัคร</h3>
+                            <p><strong>รหัสใบสมัคร:</strong> ${application.id}</p>
+                            <p><strong>ตำแหน่งที่สมัคร:</strong> ${position}</p>
+                            <p><strong>วันที่สมัคร:</strong> ${new Date().toLocaleDateString('th-TH')}</p>
+                        </div>
+                        <p>เราจะติดต่อกลับภายใน 7 วันทำการ</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        await sendEmail(email, '🎉 ยืนยันการรับใบสมัครงาน', applicantEmailHTML);
+        
+        const adminEmailHTML = `
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="font-family: Arial, sans-serif;">
+                <h1>🆕 มีใบสมัครงานใหม่!</h1>
+                <p>รหัส: ${application.id}</p>
+                <p>ตำแหน่ง: ${position}</p>
+                <p>ชื่อ: ${fullname_th}</p>
+                <p>อีเมล: ${email}</p>
+                <p>โทร: ${phone}</p>
+            </body>
+            </html>
+        `;
+        
+        await sendEmail(
+            process.env.ADMIN_EMAIL || 'forcon674@outlook.com',
+            `🆕 ใบสมัครงานใหม่ - ${position} - ${fullname_th}`,
+            adminEmailHTML,
+            attachments
+        );
         
         console.log('Emails sent successfully');
         
