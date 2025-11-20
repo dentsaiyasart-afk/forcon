@@ -61,7 +61,41 @@ async function downloadThaiFont() {
         return { regular: thaiFont, bold: thaiFontBold };
         
     } catch (error) {
-        console.error('Error downloading Thai fonts:', error.message);
+        console.error('Error processing job application:', error);
+        console.error('Error stack:', error.stack);
+        
+        res.status(500).json({
+            success: false,
+            message: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+// ====================================================
+// ERROR HANDLING
+// ====================================================
+
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'Endpoint not found'
+    });
+});
+
+app.use((err, req, res, next) => {
+    console.error('Global error handler:', err.stack);
+    res.status(500).json({
+        success: false,
+        message: 'Something went wrong!'
+    });
+});
+
+// ====================================================
+// EXPORT FOR VERCEL
+// ====================================================
+
+module.exports = app; downloading Thai fonts:', error.message);
         throw new Error('Cannot download Thai fonts: ' + error.message);
     }
 }
@@ -620,52 +654,15 @@ app.post('/api/job-application', upload.fields([
         // Send emails
         console.log('Sending emails...');
         
-        const applicantEmailHTML = `
-            <!DOCTYPE html>
-            <html>
-            <head><meta charset="UTF-8"></head>
-            <body style="font-family: Arial, sans-serif;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                        <h1>🌟 ยืนยันการสมัครงาน</h1>
-                        <h2>ขอบคุณที่สมัครงานกับเรา!</h2>
-                    </div>
-                    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-                        <p>สวัสดีคุณ <strong>${fullname_th}</strong>,</p>
-                        <p>เราได้รับใบสมัครงานของคุณเรียบร้อยแล้ว 📋</p>
-                        <div style="background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #667eea; border-radius: 5px;">
-                            <h3>📋 ข้อมูลการสมัคร</h3>
-                            <p><strong>รหัสใบสมัคร:</strong> ${application.id}</p>
-                            <p><strong>ตำแหน่งที่สมัคร:</strong> ${position}</p>
-                            <p><strong>วันที่สมัคร:</strong> ${new Date().toLocaleDateString('th-TH')}</p>
-                        </div>
-                        <p>เราจะติดต่อกลับภายใน 7 วันทำการ</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
+        const applicantEmailHTML = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: Arial, sans-serif;"><div style="max-width: 600px; margin: 0 auto; padding: 20px;"><div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;"><h1>🌟 ยืนยันการสมัครงาน</h1><h2>ขอบคุณที่สมัครงานกับเรา!</h2></div><div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;"><p>สวัสดีคุณ <strong>' + fullname_th + '</strong>,</p><p>เราได้รับใบสมัครงานของคุณเรียบร้อยแล้ว 📋</p><div style="background: white; padding: 15px; margin: 15px 0; border-left: 4px solid #667eea; border-radius: 5px;"><h3>📋 ข้อมูลการสมัคร</h3><p><strong>รหัสใบสมัคร:</strong> ' + application.id + '</p><p><strong>ตำแหน่งที่สมัคร:</strong> ' + position + '</p><p><strong>วันที่สมัคร:</strong> ' + new Date().toLocaleDateString('th-TH') + '</p></div><p>เราจะติดต่อกลับภายใน 7 วันทำการ</p></div></div></body></html>';
         
         await sendEmail(email, '🎉 ยืนยันการรับใบสมัครงาน', applicantEmailHTML);
         
-        const adminEmailHTML = `
-            <!DOCTYPE html>
-            <html>
-            <head><meta charset="UTF-8"></head>
-            <body style="font-family: Arial, sans-serif;">
-                <h1>🆕 มีใบสมัครงานใหม่!</h1>
-                <p>รหัส: ${application.id}</p>
-                <p>ตำแหน่ง: ${position}</p>
-                <p>ชื่อ: ${fullname_th}</p>
-                <p>อีเมล: ${email}</p>
-                <p>โทร: ${phone}</p>
-            </body>
-            </html>
-        `;
+        const adminEmailHTML = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: Arial, sans-serif;"><h1>🆕 มีใบสมัครงานใหม่!</h1><p>รหัส: ' + application.id + '</p><p>ตำแหน่ง: ' + position + '</p><p>ชื่อ: ' + fullname_th + '</p><p>อีเมล: ' + email + '</p><p>โทร: ' + phone + '</p></body></html>';
         
         await sendEmail(
             process.env.ADMIN_EMAIL || 'forcon674@outlook.com',
-            `🆕 ใบสมัครงานใหม่ - ${position} - ${fullname_th}`,
+            '🆕 ใบสมัครงานใหม่ - ' + position + ' - ' + fullname_th,
             adminEmailHTML,
             attachments
         );
