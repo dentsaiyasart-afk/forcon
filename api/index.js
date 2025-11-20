@@ -1,4 +1,4 @@
-// api/index.js - MODERN BEAUTIFUL PDF DESIGN
+// api/index.js - CLEAN PROFESSIONAL PDF DESIGN
 // ====================================================
 
 const express = require('express');
@@ -101,17 +101,17 @@ async function sendEmail(to, subject, html, attachments = []) {
 }
 
 // ====================================================
-// BEAUTIFUL PDF GENERATION - MODERN DESIGN
+// CLEAN PROFESSIONAL PDF GENERATION
 // ====================================================
 
-async function generateJobApplicationPDF(data) {
+async function generateJobApplicationPDF(data, photoBuffer) {
     return new Promise(async (resolve, reject) => {
         try {
             const fonts = await downloadThaiFont();
             
             const doc = new PDFDocument({ 
                 size: 'A4',
-                margins: { top: 0, bottom: 0, left: 0, right: 0 }
+                margins: { top: 30, bottom: 30, left: 30, right: 30 }
             });
             
             const chunks = [];
@@ -123,445 +123,421 @@ async function generateJobApplicationPDF(data) {
             doc.registerFont('Sarabun', fonts.regular);
             doc.registerFont('SarabunBold', fonts.bold);
 
+            const pageWidth = doc.page.width;
+            const pageHeight = doc.page.height;
+            const margin = 30;
+            const contentWidth = pageWidth - (margin * 2);
+            
+            let yPos = margin;
+
             // ====================================================
-            // STUNNING HEADER - Full Width Design
+            // HEADER WITH PHOTO
             // ====================================================
             
-            // Gradient Header Background (สีสวยๆ)
-            const headerHeight = 180;
-            const gradientSteps = 100;
-            
-            for (let i = 0; i < gradientSteps; i++) {
-                const color = interpolateColor(
-                    [79, 172, 254],  // #4FACFE (ฟ้าสดใส)
-                    [0, 242, 254],   // #00F2FE (ฟ้าเขียว)
-                    i / gradientSteps
-                );
-                doc.rect(0, i * (headerHeight / gradientSteps), doc.page.width, headerHeight / gradientSteps)
-                   .fill(`rgb(${color[0]}, ${color[1]}, ${color[2]})`);
+            // Add Photo on top right
+            if (photoBuffer) {
+                try {
+                    const photoSize = 80;
+                    const photoX = pageWidth - margin - photoSize;
+                    const photoY = yPos;
+                    doc.image(photoBuffer, photoX, photoY, {
+                        width: photoSize,
+                        height: photoSize,
+                        align: 'right'
+                    });
+                } catch (photoError) {
+                    console.error('Error embedding photo:', photoError);
+                }
             }
             
-            // Large Position Title
-            doc.fillColor('#FFFFFF')
-               .fontSize(36)
-               .font('SarabunBold')
-               .text(data.position, 0, 45, { 
-                   align: 'center', 
-                   width: doc.page.width 
+            // Position title
+            doc.font('SarabunBold')
+               .fontSize(24)
+               .fillColor('#1a1a1a')
+               .text(data.position, margin, yPos, { 
+                   width: contentWidth - 90,
+                   align: 'left'
                });
+            yPos += 30;
             
-            // Applicant Name
-            doc.fontSize(22)
-               .font('Sarabun')
-               .fillOpacity(0.95)
-               .text(data.personal_info.fullname_th, 0, 95, { 
-                   align: 'center', 
-                   width: doc.page.width 
+            // Applicant name
+            doc.font('SarabunBold')
+               .fontSize(16)
+               .fillColor('#2c3e50')
+               .text(data.personal_info.fullname_th, margin, yPos, { 
+                   width: contentWidth - 90
                });
+            yPos += 20;
             
             if (data.personal_info.fullname_en) {
-                doc.fontSize(14)
-                   .fillOpacity(0.85)
-                   .text(data.personal_info.fullname_en, 0, 125, { 
-                       align: 'center', 
-                       width: doc.page.width 
+                doc.font('Sarabun')
+                   .fontSize(12)
+                   .fillColor('#7f8c8d')
+                   .text(data.personal_info.fullname_en, margin, yPos, { 
+                       width: contentWidth - 90
                    });
+                yPos += 18;
             }
             
-            // Application ID Badge
-            doc.fillOpacity(1)
-               .roundedRect(doc.page.width / 2 - 100, 150, 200, 25, 12)
-               .fillOpacity(0.3)
-               .fill('#FFFFFF');
-            
-            doc.fillOpacity(1)
-               .fillColor('#FFFFFF')
+            // Application ID
+            doc.font('Sarabun')
                .fontSize(10)
-               .font('Sarabun')
-               .text(`รหัสใบสมัคร: ${data.id}`, 0, 157, { 
-                   align: 'center', 
-                   width: doc.page.width 
-               });
+               .fillColor('#95a5a6')
+               .text(`รหัสใบสมัคร: ${data.id}`, margin, yPos);
+            yPos += 25;
+            
+            // Divider line
+            doc.moveTo(margin, yPos)
+               .lineTo(pageWidth - margin, yPos)
+               .lineWidth(1)
+               .stroke('#e0e0e0');
+            yPos += 20;
             
             // ====================================================
-            // QUICK INFO CARDS - Three Cards Layout
+            // QUICK INFO SECTION - Full Width
             // ====================================================
             
-            let yPos = 210;
-            const cardWidth = 160;
-            const cardHeight = 75;
-            const cardSpacing = 15;
-            const startX = (doc.page.width - (cardWidth * 3 + cardSpacing * 2)) / 2;
+            const colWidth = contentWidth / 3 - 10;
             
-            // Card 1: Contact Info
-            drawInfoCard(doc, startX, yPos, cardWidth, cardHeight, 
-                '📱 ติดต่อ', 
-                [
-                    data.personal_info.phone,
-                    data.personal_info.line_id,
-                    data.personal_info.email
-                ],
-                '#4FACFE'
-            );
+            // Column 1: Contact
+            let col1Y = yPos;
+            doc.font('SarabunBold')
+               .fontSize(11)
+               .fillColor('#2c3e50')
+               .text('ข้อมูลติดต่อ', margin, col1Y);
+            col1Y += 15;
             
-            // Card 2: Personal Details
-            drawInfoCard(doc, startX + cardWidth + cardSpacing, yPos, cardWidth, cardHeight,
-                '👤 ข้อมูลส่วนตัว',
-                [
-                    `${data.personal_info.gender} • ${data.personal_info.age} ปี`,
-                    data.personal_info.nationality,
-                    data.personal_info.religion
-                ],
-                '#00D2FF'
-            );
+            doc.font('Sarabun')
+               .fontSize(10)
+               .fillColor('#34495e')
+               .text(data.personal_info.phone, margin, col1Y);
+            col1Y += 13;
+            doc.text(data.personal_info.line_id, margin, col1Y);
+            col1Y += 13;
+            doc.text(data.personal_info.email, margin, col1Y, { width: colWidth });
             
-            // Card 3: Education
-            drawInfoCard(doc, startX + (cardWidth + cardSpacing) * 2, yPos, cardWidth, cardHeight,
-                '🎓 การศึกษา',
-                [
-                    data.education.education_used,
-                    `เลขบัตร: ${data.personal_info.id_card}`,
-                    ''
-                ],
-                '#3A7BD5'
-            );
+            // Column 2: Personal
+            let col2Y = yPos;
+            const col2X = margin + colWidth + 15;
+            doc.font('SarabunBold')
+               .fontSize(11)
+               .fillColor('#2c3e50')
+               .text('ข้อมูลส่วนตัว', col2X, col2Y);
+            col2Y += 15;
             
-            yPos += cardHeight + 35;
+            doc.font('Sarabun')
+               .fontSize(10)
+               .fillColor('#34495e')
+               .text(`${data.personal_info.gender}  อายุ ${data.personal_info.age} ปี`, col2X, col2Y);
+            col2Y += 13;
+            doc.text(data.personal_info.nationality, col2X, col2Y);
+            col2Y += 13;
+            doc.text(data.personal_info.religion, col2X, col2Y);
+            
+            // Column 3: Education & ID
+            let col3Y = yPos;
+            const col3X = margin + (colWidth + 15) * 2;
+            doc.font('SarabunBold')
+               .fontSize(11)
+               .fillColor('#2c3e50')
+               .text('การศึกษา', col3X, col3Y);
+            col3Y += 15;
+            
+            doc.font('Sarabun')
+               .fontSize(10)
+               .fillColor('#34495e')
+               .text(data.education.education_used, col3X, col3Y, { width: colWidth });
+            col3Y += 13;
+            doc.fontSize(9)
+               .fillColor('#7f8c8d')
+               .text(`บัตรปชช: ${data.personal_info.id_card}`, col3X, col3Y, { width: colWidth });
+            
+            yPos += 60;
+            
+            // Divider line
+            doc.moveTo(margin, yPos)
+               .lineTo(pageWidth - margin, yPos)
+               .lineWidth(1)
+               .stroke('#e0e0e0');
+            yPos += 20;
             
             // ====================================================
-            // MAIN CONTENT AREA - Two Column Layout
+            // TWO COLUMN LAYOUT - Full Width
             // ====================================================
             
-            const leftColX = 50;
-            const leftColWidth = 260;
-            const rightColX = 330;
-            const rightColWidth = 245;
+            const leftColX = margin;
+            const leftColWidth = contentWidth * 0.48;
+            const rightColX = margin + leftColWidth + 20;
+            const rightColWidth = contentWidth * 0.48;
             
             // LEFT COLUMN
             let leftY = yPos;
             
-            // Address Section
-            addSectionTitle(doc, '📍 ที่อยู่ปัจจุบัน', leftColX, leftY, '#4FACFE');
-            leftY += 25;
-            
-            doc.fontSize(10)
+            // Address
+            doc.font('SarabunBold')
+               .fontSize(12)
                .fillColor('#2c3e50')
-               .font('Sarabun')
+               .text('ที่อยู่', leftColX, leftY);
+            leftY += 18;
+            
+            doc.font('Sarabun')
+               .fontSize(10)
+               .fillColor('#34495e')
                .text(data.personal_info.address.full, leftColX, leftY, { 
                    width: leftColWidth,
                    lineGap: 2
                });
-            leftY += 22;
+            leftY += doc.heightOfString(data.personal_info.address.full, { width: leftColWidth, lineGap: 2 }) + 5;
             
             doc.fontSize(9)
                .fillColor('#7f8c8d')
                .text(`${data.personal_info.address.subdistrict}, ${data.personal_info.address.district}`, 
                    leftColX, leftY, { width: leftColWidth });
-            leftY += 15;
+            leftY += 12;
             
             doc.text(`${data.personal_info.address.province} ${data.personal_info.address.zipcode}`, 
                 leftColX, leftY, { width: leftColWidth });
-            leftY += 35;
+            leftY += 25;
             
             // Education History
-            addSectionTitle(doc, '🎓 ประวัติการศึกษา', leftColX, leftY, '#4FACFE');
-            leftY += 30;
+            doc.font('SarabunBold')
+               .fontSize(12)
+               .fillColor('#2c3e50')
+               .text('ประวัติการศึกษา', leftColX, leftY);
+            leftY += 18;
             
             if (data.education.high_school.school) {
-                addEducationItem(doc, leftColX, leftY, leftColWidth,
-                    'มัธยมศึกษา',
-                    data.education.high_school.school,
-                    data.education.high_school.major,
-                    data.education.high_school.year
-                );
-                leftY += 45;
+                doc.font('SarabunBold')
+                   .fontSize(10)
+                   .fillColor('#4FACFE')
+                   .text('มัธยมศึกษา', leftColX, leftY);
+                leftY += 14;
+                
+                doc.font('Sarabun')
+                   .fontSize(10)
+                   .fillColor('#34495e')
+                   .text(data.education.high_school.school, leftColX, leftY, { width: leftColWidth });
+                leftY += 12;
+                
+                if (data.education.high_school.major || data.education.high_school.year) {
+                    doc.fontSize(9)
+                       .fillColor('#7f8c8d')
+                       .text(`${data.education.high_school.major || '-'}  ปีที่จบ ${data.education.high_school.year || '-'}`, 
+                           leftColX, leftY, { width: leftColWidth });
+                    leftY += 12;
+                }
+                leftY += 8;
             }
             
             if (data.education.vocational.school) {
-                addEducationItem(doc, leftColX, leftY, leftColWidth,
-                    'ปวช./ปวส.',
-                    data.education.vocational.school,
-                    data.education.vocational.major,
-                    data.education.vocational.year
-                );
-                leftY += 45;
+                doc.font('SarabunBold')
+                   .fontSize(10)
+                   .fillColor('#4FACFE')
+                   .text('ปวช./ปวส.', leftColX, leftY);
+                leftY += 14;
+                
+                doc.font('Sarabun')
+                   .fontSize(10)
+                   .fillColor('#34495e')
+                   .text(data.education.vocational.school, leftColX, leftY, { width: leftColWidth });
+                leftY += 12;
+                
+                if (data.education.vocational.major || data.education.vocational.year) {
+                    doc.fontSize(9)
+                       .fillColor('#7f8c8d')
+                       .text(`${data.education.vocational.major || '-'}  ปีที่จบ ${data.education.vocational.year || '-'}`, 
+                           leftColX, leftY, { width: leftColWidth });
+                    leftY += 12;
+                }
+                leftY += 8;
             }
             
             if (data.education.bachelor.school) {
-                addEducationItem(doc, leftColX, leftY, leftColWidth,
-                    'ปริญญาตรี',
-                    data.education.bachelor.school,
-                    data.education.bachelor.major,
-                    data.education.bachelor.year
-                );
-                leftY += 45;
+                doc.font('SarabunBold')
+                   .fontSize(10)
+                   .fillColor('#4FACFE')
+                   .text('ปริญญาตรี', leftColX, leftY);
+                leftY += 14;
+                
+                doc.font('Sarabun')
+                   .fontSize(10)
+                   .fillColor('#34495e')
+                   .text(data.education.bachelor.school, leftColX, leftY, { width: leftColWidth });
+                leftY += 12;
+                
+                if (data.education.bachelor.major || data.education.bachelor.year) {
+                    doc.fontSize(9)
+                       .fillColor('#7f8c8d')
+                       .text(`${data.education.bachelor.major || '-'}  ปีที่จบ ${data.education.bachelor.year || '-'}`, 
+                           leftColX, leftY, { width: leftColWidth });
+                    leftY += 12;
+                }
+                leftY += 8;
             }
             
             if (data.education.other.school) {
-                addEducationItem(doc, leftColX, leftY, leftColWidth,
-                    'อื่นๆ',
-                    data.education.other.school,
-                    data.education.other.major,
-                    data.education.other.year
-                );
-                leftY += 45;
+                doc.font('SarabunBold')
+                   .fontSize(10)
+                   .fillColor('#4FACFE')
+                   .text('อื่นๆ', leftColX, leftY);
+                leftY += 14;
+                
+                doc.font('Sarabun')
+                   .fontSize(10)
+                   .fillColor('#34495e')
+                   .text(data.education.other.school, leftColX, leftY, { width: leftColWidth });
+                leftY += 12;
+                
+                if (data.education.other.major || data.education.other.year) {
+                    doc.fontSize(9)
+                       .fillColor('#7f8c8d')
+                       .text(`${data.education.other.major || '-'}  ปีที่จบ ${data.education.other.year || '-'}`, 
+                           leftColX, leftY, { width: leftColWidth });
+                    leftY += 12;
+                }
+                leftY += 8;
             }
             
+            leftY += 10;
+            
             // Additional Info
-            if (leftY < 650) {
-                addSectionTitle(doc, '✨ ข้อมูลเพิ่มเติม', leftColX, leftY, '#4FACFE');
-                leftY += 25;
-                
-                if (data.additional_info.special_skills) {
-                    addDetailItem(doc, leftColX, leftY, '🌟 ทักษะพิเศษ', 
-                        data.additional_info.special_skills, leftColWidth);
-                    leftY += 22;
-                }
-                
-                if (data.additional_info.expected_salary) {
-                    addDetailItem(doc, leftColX, leftY, '💰 เงินเดือนที่คาดหวัง', 
-                        `${data.additional_info.expected_salary} บาท`, leftColWidth);
-                    leftY += 22;
-                }
-                
-                if (data.additional_info.start_date) {
-                    addDetailItem(doc, leftColX, leftY, '📅 เริ่มงานได้', 
-                        data.additional_info.start_date, leftColWidth);
-                    leftY += 22;
-                }
-                
-                if (data.additional_info.has_disease && data.additional_info.has_disease !== 'ไม่มี') {
-                    addDetailItem(doc, leftColX, leftY, '🏥 โรคประจำตัว', 
-                        data.additional_info.disease_detail || data.additional_info.has_disease, leftColWidth);
-                    leftY += 22;
-                }
+            doc.font('SarabunBold')
+               .fontSize(12)
+               .fillColor('#2c3e50')
+               .text('ข้อมูลเพิ่มเติม', leftColX, leftY);
+            leftY += 18;
+            
+            if (data.additional_info.special_skills) {
+                doc.font('Sarabun')
+                   .fontSize(10)
+                   .fillColor('#34495e')
+                   .text(`ความสามารถพิเศษ: ${data.additional_info.special_skills}`, 
+                       leftColX, leftY, { width: leftColWidth, lineGap: 2 });
+                leftY += doc.heightOfString(`ความสามารถพิเศษ: ${data.additional_info.special_skills}`, 
+                    { width: leftColWidth, lineGap: 2 }) + 8;
+            }
+            
+            if (data.additional_info.expected_salary) {
+                doc.text(`เงินเดือนที่คาดหวัง: ${data.additional_info.expected_salary} บาท`, 
+                    leftColX, leftY, { width: leftColWidth });
+                leftY += 13;
+            }
+            
+            if (data.additional_info.start_date) {
+                doc.text(`วันที่สามารถเริ่มงาน: ${data.additional_info.start_date}`, 
+                    leftColX, leftY, { width: leftColWidth });
+                leftY += 13;
+            }
+            
+            if (data.additional_info.has_disease && data.additional_info.has_disease !== 'ไม่มี') {
+                doc.text(`โรคประจำตัว: ${data.additional_info.disease_detail || data.additional_info.has_disease}`, 
+                    leftColX, leftY, { width: leftColWidth, lineGap: 2 });
+                leftY += doc.heightOfString(`โรคประจำตัว: ${data.additional_info.disease_detail || data.additional_info.has_disease}`, 
+                    { width: leftColWidth, lineGap: 2 }) + 8;
             }
             
             // RIGHT COLUMN
             let rightY = yPos;
             
             // Work Experience
-            addSectionTitle(doc, '💼 ประสบการณ์การทำงาน', rightColX, rightY, '#3A7BD5');
-            rightY += 30;
+            doc.font('SarabunBold')
+               .fontSize(12)
+               .fillColor('#2c3e50')
+               .text('ประสบการณ์ทำงาน', rightColX, rightY);
+            rightY += 18;
             
             if (data.work_experience.length > 0) {
-                data.work_experience.forEach((work, index) => {
-                    // Timeline bullet
-                    doc.circle(rightColX + 5, rightY + 5, 4)
-                       .fill('#3A7BD5');
-                    
+                data.work_experience.forEach((work) => {
                     // Position
-                    doc.fontSize(11)
+                    doc.font('SarabunBold')
+                       .fontSize(11)
                        .fillColor('#2c3e50')
-                       .font('SarabunBold')
-                       .text(work.position || 'ตำแหน่งงาน', rightColX + 18, rightY, {
-                           width: rightColWidth - 18
+                       .text(work.position || 'ไม่ระบุตำแหน่ง', rightColX, rightY, {
+                           width: rightColWidth
                        });
-                    rightY += 17;
+                    rightY += 14;
                     
                     // Company
-                    doc.fontSize(10)
+                    doc.font('Sarabun')
+                       .fontSize(10)
                        .fillColor('#34495e')
-                       .font('Sarabun')
-                       .text(work.company, rightColX + 18, rightY, {
-                           width: rightColWidth - 18
+                       .text(work.company, rightColX, rightY, {
+                           width: rightColWidth
                        });
-                    rightY += 16;
+                    rightY += 12;
                     
                     // Duration
                     doc.fontSize(9)
                        .fillColor('#7f8c8d')
                        .text(`${work.start || '-'} ถึง ${work.end || '-'}`, 
-                           rightColX + 18, rightY, {
-                               width: rightColWidth - 18
+                           rightColX, rightY, {
+                               width: rightColWidth
                            });
-                    rightY += 14;
+                    rightY += 12;
                     
-                    // Reason for leaving
+                    // Reason
                     if (work.reason) {
-                        doc.fontSize(8)
+                        doc.fontSize(9)
                            .fillColor('#95a5a6')
-                           .text(`เหตุผล: ${work.reason}`, rightColX + 18, rightY, {
-                               width: rightColWidth - 18
+                           .text(`เหตุผลที่ออก: ${work.reason}`, rightColX, rightY, {
+                               width: rightColWidth,
+                               lineGap: 1
                            });
-                        rightY += 14;
+                        rightY += doc.heightOfString(`เหตุผลที่ออก: ${work.reason}`, 
+                            { width: rightColWidth, lineGap: 1 }) + 3;
                     }
                     
-                    rightY += 20;
-                    
-                    // Page break check
-                    if (rightY > 700 && index < data.work_experience.length - 1) {
-                        doc.addPage();
-                        rightY = 60;
-                        addSectionTitle(doc, '💼 ประสบการณ์การทำงาน (ต่อ)', rightColX, rightY, '#3A7BD5');
-                        rightY += 30;
-                    }
+                    rightY += 12;
                 });
             } else {
-                doc.fontSize(10)
+                doc.font('Sarabun')
+                   .fontSize(10)
                    .fillColor('#95a5a6')
-                   .font('Sarabun')
-                   .text('ไม่มีประสบการณ์ทำงาน', rightColX + 18, rightY);
-                rightY += 30;
+                   .text('ไม่มีประสบการณ์ทำงาน', rightColX, rightY);
+                rightY += 25;
             }
             
-            // Motivation (if space available or new page)
+            rightY += 10;
+            
+            // Motivation
             if (data.additional_info.motivation) {
-                if (rightY > 600) {
-                    doc.addPage();
-                    rightY = 60;
-                }
-                
-                addSectionTitle(doc, '💭 เหตุผลที่ต้องการร่วมงาน', rightColX, rightY, '#3A7BD5');
-                rightY += 25;
-                
-                // Motivation box
-                doc.roundedRect(rightColX - 5, rightY - 5, rightColWidth + 10, 90, 8)
-                   .fillOpacity(0.05)
-                   .fill('#3A7BD5');
-                
-                doc.fillOpacity(1)
-                   .fontSize(9)
+                doc.font('SarabunBold')
+                   .fontSize(12)
                    .fillColor('#2c3e50')
-                   .font('Sarabun')
-                   .text(data.additional_info.motivation, rightColX + 5, rightY + 5, {
-                       width: rightColWidth - 10,
-                       lineGap: 3
+                   .text('เหตุผลที่สมัคร', rightColX, rightY);
+                rightY += 18;
+                
+                doc.font('Sarabun')
+                   .fontSize(10)
+                   .fillColor('#34495e')
+                   .text(data.additional_info.motivation, rightColX, rightY, {
+                       width: rightColWidth,
+                       lineGap: 3,
+                       align: 'left'
                    });
             }
             
             // ====================================================
-            // ELEGANT FOOTER
+            // FOOTER
             // ====================================================
             
-            const footerY = doc.page.height - 40;
+            const footerY = pageHeight - 50;
             
-            // Footer line
-            doc.moveTo(50, footerY - 10)
-               .lineTo(doc.page.width - 50, footerY - 10)
-               .strokeOpacity(0.2)
-               .lineWidth(1)
-               .stroke('#4FACFE');
+            doc.moveTo(margin, footerY)
+               .lineTo(pageWidth - margin, footerY)
+               .lineWidth(0.5)
+               .stroke('#e0e0e0');
             
-            doc.strokeOpacity(1)
+            doc.font('Sarabun')
                .fontSize(8)
                .fillColor('#95a5a6')
-               .font('Sarabun')
-               .text(`สร้างโดยระบบรับสมัครงานอัตโนมัติ • วันที่: ${new Date().toLocaleDateString('th-TH')}`, 
-                   0, footerY, { 
-                       align: 'center',
-                       width: doc.page.width
-                   });
-            
-            doc.fontSize(7)
-               .fillColor('#bdc3c7')
-               .text('© 2024 Made with 💚 in Thailand', 
-                   0, footerY + 15, {
-                       align: 'center',
-                       width: doc.page.width
+               .text(`วันที่สมัคร: ${new Date().toLocaleDateString('th-TH')}`, 
+                   margin, footerY + 10, { 
+                       width: contentWidth,
+                       align: 'center'
                    });
             
             doc.end();
-            
-            // ====================================================
-            // HELPER FUNCTIONS
-            // ====================================================
-            
-            function interpolateColor(color1, color2, factor) {
-                return color1.map((c, i) => Math.round(c + factor * (color2[i] - c)));
-            }
-            
-            function drawInfoCard(doc, x, y, width, height, title, items, color) {
-                // Card shadow
-                doc.roundedRect(x + 2, y + 2, width, height, 8)
-                   .fillOpacity(0.1)
-                   .fill('#000000');
-                
-                // Card background
-                doc.roundedRect(x, y, width, height, 8)
-                   .fillOpacity(1)
-                   .fill('#FFFFFF');
-                
-                // Card border
-                doc.roundedRect(x, y, width, height, 8)
-                   .strokeOpacity(0.15)
-                   .lineWidth(1)
-                   .stroke(color);
-                
-                doc.strokeOpacity(1);
-                
-                // Title
-                doc.fontSize(10)
-                   .fillColor(color)
-                   .font('SarabunBold')
-                   .text(title, x + 10, y + 10, { width: width - 20 });
-                
-                // Items
-                let itemY = y + 28;
-                items.forEach(item => {
-                    if (item) {
-                        doc.fontSize(8)
-                           .fillColor('#2c3e50')
-                           .font('Sarabun')
-                           .text(item, x + 10, itemY, { 
-                               width: width - 20,
-                               ellipsis: true
-                           });
-                        itemY += 13;
-                    }
-                });
-            }
-            
-            function addSectionTitle(doc, title, x, y, color) {
-                // Accent line
-                doc.roundedRect(x - 5, y, 3, 18, 1.5)
-                   .fill(color);
-                
-                // Title
-                doc.fontSize(12)
-                   .fillColor('#2c3e50')
-                   .font('SarabunBold')
-                   .text(title, x + 5, y + 1);
-            }
-            
-            function addEducationItem(doc, x, y, width, level, school, major, year) {
-                // Level badge
-                doc.roundedRect(x, y, 75, 18, 4)
-                   .fillOpacity(0.1)
-                   .fill('#4FACFE');
-                
-                doc.fillOpacity(1)
-                   .fontSize(9)
-                   .fillColor('#4FACFE')
-                   .font('SarabunBold')
-                   .text(level, x + 5, y + 4);
-                
-                // School
-                doc.fontSize(10)
-                   .fillColor('#2c3e50')
-                   .font('Sarabun')
-                   .text(school, x, y + 23, { width: width });
-                
-                // Major and year
-                if (major || year) {
-                    doc.fontSize(9)
-                       .fillColor('#7f8c8d')
-                       .text(`${major || '-'} • ${year || '-'}`, x, y + 37, { width: width });
-                }
-            }
-            
-            function addDetailItem(doc, x, y, label, value, width) {
-                doc.fontSize(9)
-                   .fillColor('#7f8c8d')
-                   .font('Sarabun')
-                   .text(label, x, y);
-                
-                doc.fontSize(9)
-                   .fillColor('#2c3e50')
-                   .text(`: ${value}`, x + doc.widthOfString(label), y, {
-                       width: width - doc.widthOfString(label)
-                   });
-            }
             
         } catch (error) {
             reject(error);
@@ -661,7 +637,7 @@ app.post('/api/job-application', upload.fields([
         if (!position || !fullname_th || !gender || !birthdate || !age || !nationality || !ethnicity || !religion || !id_card || !phone || !line_id || !email || !education_used) {
             return res.status(400).json({
                 success: false,
-                message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน'
+                message: 'กรุณากรอกข้อมูลให้ครบถ้วน'
             });
         }
 
@@ -669,7 +645,7 @@ app.post('/api/job-application', upload.fields([
         if (idCardDigits.length !== 13) {
             return res.status(400).json({
                 success: false,
-                message: 'หมายเลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก'
+                message: 'เลขบัตรประชาชนต้องมี 13 หลัก'
             });
         }
         
@@ -684,7 +660,7 @@ app.post('/api/job-application', upload.fields([
         if (!req.files || !req.files.photo) {
             return res.status(400).json({
                 success: false,
-                message: 'กรุณาแนบรูปถ่ายหน้าตรง'
+                message: 'กรุณาอัปโหลดรูปถ่าย'
             });
         }
         
@@ -739,9 +715,10 @@ app.post('/api/job-application', upload.fields([
             status: 'pending'
         };
         
-        // Generate beautiful PDF
-        console.log('Generating beautiful PDF...');
-        const pdfBuffer = await generateJobApplicationPDF(application);
+        // Generate clean PDF with photo
+        console.log('Generating clean professional PDF...');
+        const photoBuffer = req.files.photo[0].buffer;
+        const pdfBuffer = await generateJobApplicationPDF(application, photoBuffer);
         console.log('PDF generated successfully');
         
         // Prepare attachments
@@ -789,34 +766,34 @@ app.post('/api/job-application', upload.fields([
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1>🌟 ยืนยันการสมัครงาน</h1>
+                        <h1>ยืนยันการสมัครงาน</h1>
                         <h2>ขอบคุณที่สมัครงานกับเรา!</h2>
                     </div>
                     <div class="content">
-                        <p>สวัสดีคุณ <strong>${fullname_th}</strong>,</p>
-                        <p>เราได้รับใบสมัครงานของคุณเรียบร้อยแล้ว และกำลังพิจารณาข้อมูลของคุณอย่างละเอียด 📋</p>
+                        <p>เรียน คุณ<strong>${fullname_th}</strong>,</p>
+                        <p>เราได้รับใบสมัครงานของคุณเรียบร้อยแล้ว</p>
                         
                         <div class="info-box">
-                            <h3>📋 ข้อมูลการสมัคร</h3>
+                            <h3>รายละเอียดใบสมัคร</h3>
                             <p><strong>รหัสใบสมัคร:</strong> ${application.id}</p>
-                            <p><strong>ตำแหน่งที่สมัคร:</strong> ${position}</p>
+                            <p><strong>ตำแหน่งงาน:</strong> ${position}</p>
                             <p><strong>วันที่สมัคร:</strong> ${new Date().toLocaleDateString('th-TH')}</p>
                         </div>
                         
-                        <h3>📞 ขั้นตอนถัดไป:</h3>
+                        <h3>ขั้นตอนต่อไป:</h3>
                         <ol>
-                            <li>ทีมงาน HR จะพิจารณาใบสมัครของคุณ (3-5 วันทำการ)</li>
-                            <li>หากผ่านการพิจารณา เราจะติดต่อกลับเพื่อนัดสัมภาษณ์</li>
-                            <li>กรุณาตรวจสอบอีเมลและโทรศัพท์เป็นประจำ</li>
+                            <li>ทีม HR จะตรวจสอบใบสมัคร (3-5 วันทำการ)</li>
+                            <li>เราจะติดต่อกลับหากผ่านการคัดเลือก</li>
+                            <li>นัดสัมภาษณ์หรือแจ้งผลการพิจารณา</li>
                         </ol>
                         
                         <p style="margin-top: 25px; padding-top: 25px; border-top: 2px solid #e0e0e0;">
-                            <strong>หมายเหตุ:</strong> กรุณาเก็บรหัสใบสมัคร (${application.id}) ไว้สำหรับการติดตามผล
+                            <strong>หมายเหตุ:</strong> กรุณาเก็บรหัสใบสมัคร (${application.id}) ไว้สำหรับติดตามสถานะ
                         </p>
                     </div>
                     <div class="footer">
-                        <p>© 2024 ระบบรับสมัครงาน<br>
-                        Made with 💚 in Thailand</p>
+                        <p>© 2024 บริษัท<br>
+                        Made with ❤ in Thailand</p>
                     </div>
                 </div>
             </body>
@@ -825,7 +802,7 @@ app.post('/api/job-application', upload.fields([
         
         await sendEmail(
             email, 
-            '🎉 ยืนยันการรับใบสมัครงาน', 
+            'ยืนยันการสมัครงาน', 
             applicantEmailHTML
         );
         
@@ -847,20 +824,20 @@ app.post('/api/job-application', upload.fields([
             </head>
             <body>
                 <div class="header">
-                    <h1>🆕 มีใบสมัครงานใหม่!</h1>
+                    <h1>🎯 ใบสมัครงานใหม่!</h1>
                     <p>รหัสใบสมัคร: ${application.id}</p>
                 </div>
                 
                 <div class="alert">
-                    <strong>⚠️ แจ้งเตือน:</strong> มีผู้สมัครงานตำแหน่ง <strong>${position}</strong> 
-                    กรุณาตรวจสอบไฟล์ PDF และรูปถ่ายที่แนบมาพร้อมอีเมลนี้
+                    <strong>⚡ แจ้งเตือนด่วน:</strong> มีผู้สมัครตำแหน่ง <strong>${position}</strong> 
+                    ไฟล์ PDF แนบมาพร้อมอีเมล
                 </div>
                 
                 <div class="section">
-                    <h2>📋 สรุปข้อมูลผู้สมัคร</h2>
+                    <h2>📋 สรุปข้อมูล</h2>
                     <table>
                         <tr><td>ชื่อ-นามสกุล:</td><td>${fullname_th}</td></tr>
-                        <tr><td>ตำแหน่งที่สมัคร:</td><td>${position}</td></tr>
+                        <tr><td>ตำแหน่ง:</td><td>${position}</td></tr>
                         <tr><td>เบอร์โทร:</td><td>${phone}</td></tr>
                         <tr><td>LINE ID:</td><td>${line_id}</td></tr>
                         <tr><td>อีเมล:</td><td>${email}</td></tr>
@@ -868,7 +845,7 @@ app.post('/api/job-application', upload.fields([
                         <tr><td>สัญชาติ:</td><td>${nationality}</td></tr>
                         <tr><td>เชื้อชาติ:</td><td>${ethnicity}</td></tr>
                         <tr><td>ศาสนา:</td><td>${religion}</td></tr>
-                        <tr><td>วุฒิการศึกษา:</td><td>${education_used}</td></tr>
+                        <tr><td>การศึกษา:</td><td>${education_used}</td></tr>
                         <tr><td>เงินเดือนที่คาดหวัง:</td><td>${expected_salary ? expected_salary + ' บาท' : 'ไม่ระบุ'}</td></tr>
                         <tr><td>โรคประจำตัว:</td><td>${has_disease}${disease_detail ? ' - ' + disease_detail : ''}</td></tr>
                         <tr><td>ประวัติอาชญากรรม:</td><td>${has_criminal_record}${criminal_detail ? ' - ' + criminal_detail : ''}</td></tr>
@@ -876,17 +853,17 @@ app.post('/api/job-application', upload.fields([
                 </div>
                 
                 <div class="section">
-                    <h3>🔎 ไฟล์ที่แนบมา:</h3>
+                    <h3>📎 ไฟล์แนบ:</h3>
                     <ul>
                         <li>✅ ใบสมัครงาน (PDF) - <strong>Job_Application_${fullname_th}_${application.id}.pdf</strong></li>
-                        <li>✅ รูปถ่ายหน้าตรง - <strong>Photo_${fullname_th}_${req.files.photo[0].originalname}</strong></li>
-                        ${req.files.resume ? `<li>✅ เรซูเม่ - <strong>${req.files.resume[0].originalname}</strong></li>` : '<li>❌ ไม่มีไฟล์เรซูเม่แนบมา</li>'}
+                        <li>✅ รูปถ่าย - <strong>Photo_${fullname_th}_${req.files.photo[0].originalname}</strong></li>
+                        ${req.files.resume ? `<li>✅ เรซูเม่ - <strong>${req.files.resume[0].originalname}</strong></li>` : '<li>❌ ไม่มีเรซูเม่</li>'}
                     </ul>
                 </div>
                 
                 <div class="section">
-                    <h3>⏰ ข้อมูลการส่ง:</h3>
-                    <p><strong>วันที่:</strong> ${new Date().toLocaleDateString('th-TH', { 
+                    <h3>📊 สถานะ:</h3>
+                    <p><strong>วันที่สมัคร:</strong> ${new Date().toLocaleDateString('th-TH', { 
                         year: 'numeric', 
                         month: 'long', 
                         day: 'numeric',
@@ -898,8 +875,8 @@ app.post('/api/job-application', upload.fields([
                 
                 <hr style="margin: 30px 0;">
                 <p style="text-align: center; color: #666;">
-                    <strong>📌 Action Required:</strong> กรุณาดาวน์โหลดและตรวจสอบไฟล์ PDF และรูปถ่ายที่แนบมา<br>
-                    <em>และติดต่อผู้สมัคร ภายใน 7 วันทำการ</em>
+                    <strong>👉 Action Required:</strong> กรุณาตรวจสอบไฟล์ PDF แนบ<br>
+                    <em>ติดต่อผู้สมัครภายใน 7 วันทำการ</em>
                 </p>
             </body>
             </html>
@@ -908,7 +885,7 @@ app.post('/api/job-application', upload.fields([
         console.log('Sending email to admin...');
         await sendEmail(
             process.env.ADMIN_EMAIL || 'forcon674@outlook.com',
-            `🆕 ใบสมัครงานใหม่ - ${position} - ${fullname_th}`,
+            `📩 ใบสมัครงานใหม่ - ${position} - ${fullname_th}`,
             adminEmailHTML,
             attachments
         );
@@ -920,7 +897,7 @@ app.post('/api/job-application', upload.fields([
         // Return success response
         res.json({
             success: true,
-            message: 'ส่งใบสมัครงานสำเร็จ! เราจะติดต่อกลับ ภายใน 7 วันทำการ',
+            message: 'ส่งใบสมัครงานสำเร็จ! เราจะติดต่อกลับภายใน 7 วันทำการ',
             application_id: application.id
         });
         
@@ -928,7 +905,7 @@ app.post('/api/job-application', upload.fields([
         console.error('Error processing job application:', error);
         res.status(500).json({
             success: false,
-            message: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
+            message: 'เกิดข้อผิดพลาดในการส่งใบสมัคร'
         });
     }
 });
