@@ -522,11 +522,11 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
     res.json({ 
         message: 'Job Application API',
-        endpoints: ['GET  /api/health', 'POST /api/job-application']
+        endpoints: ['GET  /api/health', 'POST forcon.vercel.app/api/job-application']
     });
 });
 
-app.post('/api/job-application', upload.fields([
+app.post('forcon.vercel.app/api/job-application', upload.fields([
     { name: 'resume', maxCount: 1 },
     { name: 'photo', maxCount: 1 }
 ]), async (req, res) => {
