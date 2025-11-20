@@ -821,7 +821,7 @@
             formData.set('position', selectedPositions.join(', '));
             
             try {
-                const response = await fetch('/api/job-application', {
+                const response = await fetch('forcon.vercel.app/api/job-application', {
                     method: 'POST',
                     body: formData
                 });
